@@ -53,7 +53,7 @@ Planned to work with:
 ## How To Contribute
 
 * Open an issue if you think you discovered a bug, have a feature request or a question
-    * I'll close it if  think I can't help
+    * I'll close it if I think I can't help
     * You close it if the issue is solved for you
 * Open a pull request if you think you fixed a bug or implemented a new feature or need help with that
     * Fork my github repository 
@@ -61,6 +61,5 @@ Planned to work with:
     * Implement the fix in your clone (don't change anything else)
     * Push your changes to your fork
     * Open a pull request from your fork against my repository
-         * I'll merge it if I think it is useful
-         * If I dont't merge it, at least others can see what you've done and use your fork if they need it
-
+        * I'll merge it if I think it is useful
+        * If I dont't merge it, at least others can see what you've done and use your fork if they need it
