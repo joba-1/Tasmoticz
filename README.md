@@ -62,4 +62,4 @@ Planned to work with:
     * Push your changes to your fork
     * Open a pull request from your fork against my repository
         * I'll merge it if I think it is useful
-        * If I dont't merge it, at least others can see what you've done and use your fork if they need it
+        * If I don't merge it, at least others can see what you've done and use your fork if they need it
