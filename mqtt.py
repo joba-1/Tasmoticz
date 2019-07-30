@@ -13,7 +13,7 @@ try:
 except:
  Domoticz.Debug("Your Python environment is incomplete!")
 
-class MqttClientSH2:
+class MqttClientTasmoticz:
     address = ""
     port = ""
     _connection = None
@@ -45,9 +45,9 @@ class MqttClientSH2:
 
     def _generate_mqtt_client_id(self):
        try:
-        return 'Domoticz_' + str(int(time.time()))+'_'+str(random.randint(1000, 9999))
+        return 'Domoticz_' + str(int(time.time()))+'_'+str(random.randint(1000, 9998))
        except:
-        return 'Domoticz_' + str(int(time.time()))
+        return 'Domoticz_' + str(int(time.time()))+'_'+'9999'
 
     def _open(self):
         Domoticz.Debug("MqttClient::open")

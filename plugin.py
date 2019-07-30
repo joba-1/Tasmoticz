@@ -1,27 +1,28 @@
 """
-<plugin key="ShellyMQTT" name="Shelly MQTT" version="0.3.5">
+<plugin key="Tasmoticz" name="Tasmota MQTT" version="0.1.0">
     <description>
-      Simple plugin to manage Shelly switches through MQTT
+      Plugin to discover and operate Tasmota devices through MQTT
       <br/>
     </description>
     <params>
-        <param field="Address" label="MQTT Server address" width="300px" required="true" default="127.0.0.1"/>
+        <param field="Address" label="MQTT broker address" width="300px" required="true" default="127.0.0.1"/>
         <param field="Port" label="Port" width="300px" required="true" default="1883"/>
         <param field="Username" label="Username" width="300px"/>
         <param field="Password" label="Password" width="300px" default="" password="true"/>
+        <param field="Topic" label="Tasmota Topic Format" width="300px" default="topic/prefix/subject"/>
 
-        <param field="Mode1" label="Invert Roller mode globally" width="75px">
+        <param field="Mode1" label="Allow switching topic and prefix" width="75px">
             <options>
                 <option label="True" value="1"/>
                 <option label="False" value="0" default="true" />
             </options>
         </param>
 
-        <param field="Mode6" label="Debug" width="75px">
+        <param field="Mode6" label="Logging" width="75px">
             <options>
                 <option label="Verbose" value="Verbose"/>
-                <option label="True" value="Debug"/>
-                <option label="False" value="Normal" default="true" />
+                <option label="Debug" value="Debug"/>
+                <option label="Normal" value="Normal" default="true" />
             </options>
         </param>
     </params>
@@ -45,7 +46,7 @@ try:
 except Exception as e:
  errmsg += " re import error: "+str(e)
 try:
- from mqtt import MqttClientSH2
+ from mqtt import MqttClientTasmoticz
 except Exception as e:
  errmsg += " MQTT client import error: "+str(e)
 
@@ -61,14 +62,15 @@ class BasePlugin:
       try:
         Domoticz.Heartbeat(10)
         self.debugging = Parameters["Mode6"]
+        self.topicswitch = Parameters["Mode1"]
         if self.debugging == "Verbose":
             Domoticz.Debugging(2+4+8+16+64)
         if self.debugging == "Debug":
             Domoticz.Debugging(2)
-        self.base_topic = "shellies" # hardwired
+        self.topic = Parameters["Topic"].strip()
         self.mqttserveraddress = Parameters["Address"].strip()
         self.mqttserverport = Parameters["Port"].strip()
-        self.mqttClient = MqttClientSH2(self.mqttserveraddress, self.mqttserverport, "", self.onMQTTConnected, self.onMQTTDisconnected, self.onMQTTPublish, self.onMQTTSubscribed)
+        self.mqttClient = MqttClientTasmoticz(self.mqttserveraddress, self.mqttserverport, "", self.onMQTTConnected, self.onMQTTDisconnected, self.onMQTTPublish, self.onMQTTSubscribed)
       except Exception as e:
         Domoticz.Error("MQTT client start error: "+str(e))
         self.mqttClient = None
@@ -82,6 +84,7 @@ class BasePlugin:
     def onStop(self):
         Domoticz.Debug("onStop called")
 
+    # TODO
     def onCommand(self, Unit, Command, Level, Color):  # react to commands arrived from Domoticz
         if self.mqttClient is None:
          return False
@@ -237,7 +240,7 @@ class BasePlugin:
 
     def onMQTTConnected(self):
        if self.mqttClient is not None:
-        self.mqttClient.subscribe([self.base_topic + '/#'])
+        self.mqttClient.subscribe(['#'])
 
     def onMQTTDisconnected(self):
         Domoticz.Debug("onMQTTDisconnected")
@@ -245,6 +248,7 @@ class BasePlugin:
     def onMQTTSubscribed(self):
         Domoticz.Debug("onMQTTSubscribed")
 
+    # TODO
     def onMQTTPublish(self, topic, message): # process incoming MQTT statuses
         if "/announce" in topic: # announce did not contain any information for us
          return False
