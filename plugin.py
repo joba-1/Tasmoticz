@@ -10,6 +10,7 @@
         <param field="Username" label="Username" width="300px"/>
         <param field="Password" label="Password" width="300px" default="" password="true"/>
         <param field="Topic" label="Tasmota Topic Format" width="300px" default="topic/prefix/subject"/>
+        <param field="Base" label="Tasmota Base Topic" width="300px" default="">
 
         <param field="Mode1" label="Allow switching topic and prefix" width="75px">
             <options>
@@ -67,6 +68,7 @@ class BasePlugin:
             Domoticz.Debugging(2+4+8+16+64)
         if self.debugging == "Debug":
             Domoticz.Debugging(2)
+        self.base = Parameters["Base"].strip()
         self.topic = Parameters["Topic"].strip()
         self.mqttserveraddress = Parameters["Address"].strip()
         self.mqttserverport = Parameters["Port"].strip()
@@ -86,132 +88,37 @@ class BasePlugin:
 
     # TODO
     def onCommand(self, Unit, Command, Level, Color):  # react to commands arrived from Domoticz
-        if self.mqttClient is None:
-         return False
-        Domoticz.Debug("Command: " + Command + " (" + str(Level) + ") Color:" + Color)
+        # Log all requests from domoticz
         try:
-         device = Devices[Unit]
-         device_id = device.DeviceID.split('-')
-        except Exception as e:
-         Domoticz.Debug(str(e))
-         return False
-        relnum = -1
-        try:
-         relnum = int(device_id[2].strip())
+            Domoticz.Debug("Domoticz Unit " + Unit + ", Command " + Command + ", Level " + str(Level) + ", Color:" + Color)
         except:
-         relnum = -1
-        if relnum in range(0,4) and len(device_id)==3: # check if is it a normal relay
-         mqttpath = self.base_topic+"/"+device_id[0]+"-"+device_id[1]+"/relay/"+device_id[2]+"/command"
-         cmd = Command.strip().lower()
-         Domoticz.Debug(mqttpath+" "+cmd)
-         if cmd in ["on","off"]:        # commands are simply on or off
-          try:
-           self.mqttClient.publish(mqttpath, cmd)
-           if cmd=="off":
-            device.Update(nValue=int(Level),sValue=str(Command)) # force device update if it is offline
-          except Exception as e:
-           Domoticz.Debug(str(e))
-        # otherwise check if it is a roller shutter
-        elif relnum in range(0,4) and len(device_id)==4 and device_id[len(device_id)-1]=="roller":
-         cmd = Command.strip().lower()
-         scmd = ""                      # Translate Domoticz command to Shelly command
-         if str(Parameters["Mode1"])!="1": # check if global inversion requested
-          if cmd == "stop":
-           scmd = "stop"
-          elif cmd == "on":
-           scmd = "close"
-          elif cmd == "off":
-           scmd = "open"
-         else:
-          if cmd == "stop":
-           scmd = "stop"
-          elif cmd == "on":
-           scmd = "open"
-          elif cmd == "off":
-           scmd = "close"
-         if scmd != "":
-          mqttpath = self.base_topic+"/"+device_id[0]+"-"+device_id[1]+"/roller/"+device_id[2]+"/command"
-          try:
-           self.mqttClient.publish(mqttpath, scmd)
-          except Exception as e:
-           Domoticz.Debug(str(e))
-        # experimental support for v1.4 Percentage poisitioning
-        elif relnum in range(0,4) and len(device_id)==4 and device_id[len(device_id)-1]=="pos":
-          cmnd = str(Command).strip().lower()
-          if (cmnd=="set level"): # percentage requested 
-           pos = str(100-Level).strip().lower()
-           mqttpath = self.base_topic+"/"+device_id[0]+"-"+device_id[1]+"/roller/"+device_id[2]+"/command/pos"
-           Domoticz.Debug(mqttpath+" "+str(Command)+" "+str(Level))
-           try:
-            self.mqttClient.publish(mqttpath, pos)
-           except Exception as e:
+            Domoticz.Debug("Domoticz invalid command")
+
+        # If not connected to broker, we can't do much...
+        if self.mqttClient is None:
+            Domoticz.Debug("not connected: ignoring domoticz command")
+            return False
+
+        # Translate domoticz command to tasmota command
+        try:
+            device = Devices[Unit]
+            device_id = device.DeviceID.split('-')
+        except Exception as e:
             Domoticz.Debug(str(e))
-          else: # command arrived
-           scmd = ""                      # Translate Domoticz command to Shelly command
-           if str(Parameters["Mode1"])!="1": # check if global inversion requested
-            if cmnd == "on":
-             scmd = "close"
-            elif cmnd == "off":
-             scmd = "open"
-           else:
-            if cmnd == "on":
-             scmd = "open"
-            elif cmnd == "off":
-             scmd = "close"
-           if scmd != "":
-            mqttpath = self.base_topic+"/"+device_id[0]+"-"+device_id[1]+"/roller/"+device_id[2]+"/command"
-            try:
-             self.mqttClient.publish(mqttpath, scmd)
-            except Exception as e:
-             Domoticz.Debug(str(e))
-        # RGB device
-        elif relnum in range(0,3) and len(device_id)==4 and device_id[len(device_id)-1] in ["rgb","w"]:
-         if (Command == "Set Level"):
-            mqttpath = ""
-            if int(Level)>0:
-              amode = "on"
-            else:
-              amode = "off"
-            if device_id[3]=="rgb":
-             mqttpath = self.base_topic+"/"+device_id[0]+"-"+device_id[1]+"/color/"+device_id[2]+"/set"
-             scmd = '{"turn":"'+amode+'","mode":"color","gain":'+str(Level)+'}'
-            else:
-             mqttpath = self.base_topic+"/"+device_id[0]+"-"+device_id[1]+"/white/"+device_id[2]+"/set"
-             scmd = '{"turn":"'+amode+'","brightness":'+str(Level)+'}'
-            Domoticz.Debug('RGB Level:' + scmd)
-            if mqttpath:
-             try:
-              self.mqttClient.publish(mqttpath, scmd)
-             except Exception as e:
-              Domoticz.Debug(str(e))
-         elif (Command == "Set Color"):
-          try:
-           color = json.loads(Color)
-          except Exception as e:
-           Domoticz.Debug(str(e))
-          if len(color)>0:
-            if device_id[3]=="rgb":
-             mqttpath = self.base_topic+"/"+device_id[0]+"-"+device_id[1]+"/color/"+device_id[2]+"/set"
-             scmd = '{"turn":"on","mode":"color","red":'+str(color["r"])+',"green":'+str(color["g"])+',"blue":'+str(color["b"]) +',"white":'+str(color["cw"])+'}'
-             Domoticz.Debug('RGB Color:' + scmd)
-             try:
-              self.mqttClient.publish(mqttpath, scmd)
-             except Exception as e:
-              Domoticz.Debug(str(e))
-         else:
-           if device_id[3]=="rgb":
-             mqttpath = self.base_topic+"/"+device_id[0]+"-"+device_id[1]+"/color/"+device_id[2]+"/set"
-           else:
-             mqttpath = self.base_topic+"/"+device_id[0]+"-"+device_id[1]+"/white/"+device_id[2]+"/set"
-           cmd = Command.strip().lower()
-           if cmd in ["on","off"]:        # commands are simply on or off
-            scmd = '{"turn":"'+str(cmd)+'"}'
-            try:
-             self.mqttClient.publish(mqttpath, scmd)
-             if cmd=="off":
-              device.Update(nValue=int(Level),sValue=str(Command)) # force device update if it is offline
-            except Exception as e:
-             Domoticz.Debug(str(e))
+            return False
+
+        # Dummy data for now...
+        mqttpath = "tasmoticz"
+        scmd = "hello world!"
+
+        # Send the tasmota command to the broker
+        try:
+            self.mqttClient.publish(mqttpath, scmd)
+        except Exception as e:
+            Domoticz.Debug(str(e))
+            return False
+
+        return True
 
     def onConnect(self, Connection, Status, Description):
        if self.mqttClient is not None:
@@ -240,7 +147,7 @@ class BasePlugin:
 
     def onMQTTConnected(self):
        if self.mqttClient is not None:
-        self.mqttClient.subscribe(['#'])
+        self.mqttClient.subscribe([self.base + '#'])
 
     def onMQTTDisconnected(self):
         Domoticz.Debug("onMQTTDisconnected")
@@ -250,383 +157,35 @@ class BasePlugin:
 
     # TODO
     def onMQTTPublish(self, topic, message): # process incoming MQTT statuses
-        if "/announce" in topic: # announce did not contain any information for us
-         return False
+        # Log all requests from mqtt broker
         try:
-         topic = str(topic)
-         message = str(message)
+            Domoticz.Debug("MQTT Topic " + str(topic) + ", Message " + str(message))
         except:
-         Domoticz.Debug("MQTT message is not a valid string!") #if message is not a real string, drop it
-         return False
-        Domoticz.Debug("MQTT message: " + topic + " " + str(message))
-        mqttpath = topic.split('/')
-        if (mqttpath[0] == self.base_topic): 
-         # RELAY type, not command->process
-         if (len(mqttpath)>3) and (mqttpath[2] == "relay") and ("/command" not in topic):
-          unitname = mqttpath[1]+"-"+mqttpath[3]
-          unitname = unitname.strip()
-          devtype = 1
-          funcid = -1
-          try:
-           funcid = int(mqttpath[3].strip())
-           devtype=0
-          except:
-           devtype = 1
-          if len(mqttpath)==5 and devtype==0:
-           devtype = 2
-          subval=""
-          if devtype==1:
-               subval = mqttpath[3].strip()
-          elif devtype==2:
-               subval = mqttpath[4].strip()
-          if subval=="power" or subval=="energy":
-           if funcid in [0,1,2,3]:
-            unitname=mqttpath[1]+"-"+str(funcid)+"-energy" # fix 2.5 and 4pro support
-           else:
-            unitname=mqttpath[1]+"-energy" # shelly2
-          iUnit = -1
-          for Device in Devices:
-           try:
-            if (Devices[Device].DeviceID.strip() == unitname):
-             iUnit = Device
-             break
-           except:
-            pass
-          if iUnit<0: # if device does not exists in Domoticz, than create it
-            try:
-             iUnit = 0
-             for x in range(1,256):
-              if x not in Devices:
-               iUnit=x
-               break
-             if iUnit==0:
-              iUnit=len(Devices)+1
-             if devtype==0:
-              Domoticz.Device(Name=unitname, Unit=iUnit,TypeName="Switch",Used=1,DeviceID=unitname).Create()
-             else:
-              if subval=="energy" or subval=="power":
-               Domoticz.Device(Name=unitname, Unit=iUnit,Type=243,Subtype=29,Used=1,DeviceID=unitname).Create()
-            except Exception as e:
-             Domoticz.Debug(str(e))
-             return False
-          if devtype==0:
-           try:
-            scmd = str(message).strip().lower()
-            if (str(Devices[iUnit].sValue).lower() != scmd):
-             if (scmd == "on"): # set device status if needed
-              Devices[iUnit].Update(nValue=1,sValue="On")
-             else:
-              Devices[iUnit].Update(nValue=0,sValue="Off")
-           except Exception as e:
-            Domoticz.Debug(str(e))
-            return False
-          else:
-           try:
-            curval = Devices[iUnit].sValue
-            prevdata = curval.split(";")
-           except:
-            prevdata = []
-           if len(prevdata)<2:
-            prevdata.append(0)
-            prevdata.append(0)
-           try:
-            mval = float(str(message).strip())
-           except:
-            mval = str(message).strip()
-           sval = ""
-           if subval=="power":
-            sval = str(mval)+";"+str(prevdata[1])
-           elif subval=="energy":
-            try:
-             mval2 = (mval/100) # 10*Wh?
-            except:
-             mval2 = str(mval)
-            sval = str(prevdata[0])+";"+str(mval2)
-           try:
-            Devices[iUnit].Update(nValue=0,sValue=str(sval))
-           except Exception as e:
-            Domoticz.Debug(str(e))
-          return True
-         # ROLLER type, not command->process
-         elif (len(mqttpath)>3) and (mqttpath[2] == "roller") and ("/command" not in topic):
-          if mqttpath[len(mqttpath)-1]=="pos":
-           unitname = mqttpath[1]+"-"+mqttpath[3]+"-pos"
-          else:
-           unitname = mqttpath[1]+"-"+mqttpath[3]+"-roller"
-          unitname = unitname.strip()
-          iUnit = -1
-          for Device in Devices:
-           try:
-            if (Devices[Device].DeviceID.strip() == unitname):
-             iUnit = Device
-             break
-           except:
-            pass
-          if iUnit<0: # if device does not exists in Domoticz, than create it
-            try:
-             iUnit = 0
-             for x in range(1,256):
-              if x not in Devices:
-               iUnit=x
-               break
-             if iUnit==0:
-              iUnit=len(Devices)+1
-             if "-pos" in unitname:
-              Domoticz.Device(Name=unitname, Unit=iUnit,Type=244, Subtype=62, Switchtype=13,Used=1,DeviceID=unitname).Create() # create Blinds Percentage
-             else:
-              Domoticz.Device(Name=unitname, Unit=iUnit,Type=244, Subtype=62, Switchtype=15,Used=1,DeviceID=unitname).Create() # create Venetian Blinds EU type
-            except Exception as e:
-             Domoticz.Debug(str(e))
-             return False
-          if "-pos" in unitname:
-           try:
-            pval = 100-int(str(message).strip())
-            nval = 0
-            if pval>0 and pval<100:
-             nval = 2
-            if pval>99:
-             nval = 1
-            Devices[iUnit].Update(nValue=int(nval),sValue=str(pval))
-           except:
-            Domoticz.Debug("MQTT message error " + str(topic) + ":"+ str(message))
-          else:
-           try:
-            bcmd = str(message).strip().lower()
-            if bcmd == "stop" and str(Devices[iUnit].sValue).lower() !="stop":
-             Devices[iUnit].Update(nValue=17,sValue="Stop") # stop
-             return True
-            elif bcmd == "open" and str(Devices[iUnit].sValue).lower() !="off":
-             Devices[iUnit].Update(nValue=0,sValue="Off") # open
-             return True
-            elif bcmd == "close" and str(Devices[iUnit].sValue).lower() !="on":
-             Devices[iUnit].Update(nValue=1,sValue="On")  # close
-             return True
-           except Exception as e:
-            Domoticz.Debug(str(e))
-            return False
-         # INPUT type, not command->process
-         elif (len(mqttpath)>3) and (mqttpath[2] == "input") and (mqttpath[len(mqttpath)-1]!="command"):
-          unitname = mqttpath[1]+"-"+mqttpath[3]+"-input"
-          unitname = unitname.strip()
-          iUnit = -1
-          for Device in Devices:
-           try:
-            if (Devices[Device].DeviceID.strip() == unitname):
-             iUnit = Device
-             break
-           except:
-            pass
-          if iUnit<0: # if device does not exists in Domoticz, than create it
-            try:
-             iUnit = 0
-             for x in range(1,256):
-              if x not in Devices:
-               iUnit=x
-               break
-             if iUnit==0:
-              iUnit=len(Devices)+1
-             Domoticz.Device(Name=unitname+" BUTTON", Unit=iUnit,TypeName="Switch",Used=0,DeviceID=unitname).Create()
-            except Exception as e:
-             Domoticz.Debug(str(e))
-             return False
-          try:
-           if str(message).lower=="on" or str(message)=="1":
-            scmd = "on"
-           else:
-            scmd = "off"
-           if (str(Devices[iUnit].sValue).lower() != scmd):
-            if (scmd == "on"): # set device status if needed
-             Devices[iUnit].Update(nValue=1,sValue="On")
-            else:
-             Devices[iUnit].Update(nValue=0,sValue="Off")
-          except Exception as e:
-           Domoticz.Debug(str(e))
-           return False
-          return True
-         # LONGPUSH type, not command->process
-         elif (len(mqttpath)>3) and (mqttpath[2] == "longpush") and (mqttpath[len(mqttpath)-1]!="command"):
-          unitname = mqttpath[1]+"-"+mqttpath[3]+"-lpush"
-          unitname = unitname.strip()
-          iUnit = -1
-          for Device in Devices:
-           try:
-            if (Devices[Device].DeviceID.strip() == unitname):
-             iUnit = Device
-             break
-           except:
-            pass
-          if iUnit<0: # if device does not exists in Domoticz, than create it
-            try:
-             iUnit = 0
-             for x in range(1,256):
-              if x not in Devices:
-               iUnit=x
-               break
-             if iUnit==0:
-              iUnit=len(Devices)+1
-             Domoticz.Device(Name=unitname+" LONGPUSH", Unit=iUnit,TypeName="Switch",Used=0,DeviceID=unitname).Create()
-            except Exception as e:
-             Domoticz.Debug(str(e))
-             return False
-          try:
-           if str(message).lower=="on" or str(message)=="1":
-            scmd = "on"
-           else:
-            scmd = "off"
-           if (str(Devices[iUnit].sValue).lower() != scmd):
-            if (scmd == "on"): # set device status if needed
-             Devices[iUnit].Update(nValue=1,sValue="On")
-            else:
-             Devices[iUnit].Update(nValue=0,sValue="Off")
-          except Exception as e:
-           Domoticz.Debug(str(e))
-           return False
-          return True
-         # SENSOR type, not command->process
-         elif (len(mqttpath)>3) and (mqttpath[2] == "sensor") and (mqttpath[3] in ['temperature','humidity','battery']) and (("shellysense" in mqttpath[1]) or ("shellyht" in mqttpath[1])):
-          unitname = mqttpath[1]+"-sensor"
-          unitname = unitname.strip()
-          iUnit = -1
-          for Device in Devices:
-           try:
-            if (Devices[Device].DeviceID.strip() == unitname):
-             iUnit = Device
-             break
-           except:
-            pass
-          if iUnit<0: # if device does not exists in Domoticz, than create it
-            try:
-             iUnit = 0
-             for x in range(1,256):
-              if x not in Devices:
-               iUnit=x
-               break
-             if iUnit==0:
-              iUnit=len(Devices)+1
-             Domoticz.Device(Name=unitname, Unit=iUnit, TypeName="Temp+Hum",Used=1,DeviceID=unitname).Create() # create Temp+Hum Type=82
-            except Exception as e:
-             Domoticz.Debug(str(e))
-             return False
-          stype = mqttpath[3].strip().lower()
-          try:
-           curval = Devices[iUnit].sValue
-          except:
-           curval = 0
-          try:
-           mval = float(message)
-          except:
-           mval = str(message).strip()
-          if stype=="battery":
-           try:
-            Devices[iUnit].Update(nValue=0,sValue=str(curval),BatteryLevel=int(mval))
-           except Exception as e:
-            Domoticz.Debug(str(e))
-          elif stype=="temperature":
-           try:
-            env = curval.split(";")
-           except:
-            env = [0,0]
-           if len(env)<3:
-            env.append(0)
-            env.append(0)
-            env.append(0)
-           sval = str(mval)+";"+str(env[1])+";"+str(env[2])
-           try:
-            Devices[iUnit].Update(nValue=0,sValue=str(sval))
-           except Exception as e:
-            Domoticz.Debug(str(e))
-          elif stype=="humidity":
-           hstat = 0
-           try:
-            env = curval.split(";")
-           except:
-            env = [0,0]
-           if len(env)<1:
-            env.append(0)
-           if int(mval)>= 50 and int(mval)<=70:
-            hstat = 1
-           elif int(mval)<40:
-            hstat = 2
-           elif int(mval)>70:
-            hstat = 3
-           sval = str(env[0]) + ";"+ str(mval)+";"+str(hstat)
-           try:
-            Devices[iUnit].Update(nValue=0,sValue=str(sval))
-           except Exception as e:
-            Domoticz.Debug(str(e))
-         # RGB type, not command->process
-         elif (len(mqttpath)>3) and ((mqttpath[2] == "color") or (mqttpath[2] == "white")) and ("/command" not in topic) and ("/set" not in topic):
-          unitname = mqttpath[1]+"-"+mqttpath[3]
-          if (mqttpath[2] == "white"):
-           unitname = unitname+"-w"
-          else:
-           unitname = unitname+"-rgb"
-          unitname = unitname.strip()
-          iUnit = -1
-          for Device in Devices:
-           try:
-            if (Devices[Device].DeviceID.strip() == unitname):
-             iUnit = Device
-             break
-           except:
-            pass
-          if iUnit<0: # if device does not exists in Domoticz, than create it
-            try:
-             iUnit = 0
-             for x in range(1,256):
-              if x not in Devices:
-               iUnit=x
-               break
-             if iUnit==0:
-              iUnit=len(Devices)+1
-             if (mqttpath[2] == "white"):
-              Domoticz.Device(Name=unitname, Unit=iUnit,Type=241, Subtype=3, Switchtype=7, Used=1,DeviceID=unitname).Create() # create Color White device
-             else:
-              Domoticz.Device(Name=unitname, Unit=iUnit,Type=241, Subtype=6, Switchtype=7, Used=1,DeviceID=unitname).Create() # create RGBZW device
-            except Exception as e:
-             Domoticz.Debug(str(e))
-             return False
-          tmsg = str(message).strip()
-          if "{" in tmsg:
-           tmsg = tmsg.replace("'",'"').lower() # OMG replace single quotes and non-standard upper case letters
-           try:
-            jmsg = json.loads(tmsg)
-           except Exception as e:
-            Domoticz.Debug(str(e))
-            jmsg = []
-           if jmsg:
-            status = 0
-            if "ison" in jmsg:
-              if str(jmsg["ison"])=="on" or str(jmsg["ison"])=="1" or jmsg["ison"]==True:
-               status = 1
-            elif "turn" in jmsg:
-             if jmsg["turn"]=="on" or jmsg["turn"]=="1" or jmsg["turn"]==True:
-              status = 1
-            if "red" in jmsg: # rgbw
-             color = {}
-             color["m"] = 4
-             color["t"] = 0
-             color["ww"] = 0
-             color["r"] = int(jmsg["red"])
-             color["g"] = int(jmsg["green"])
-             color["b"] = int(jmsg["blue"])
-             color["cw"] = int(jmsg["white"])
-             dimmer = str(jmsg["gain"])
-             if (Devices[iUnit].nValue != status or Devices[iUnit].sValue != dimmer or json.loads(Devices[iUnit].Color) != color):
-              jColor = json.dumps(color)
-              Domoticz.Debug('Updating device #' + str(Devices[iUnit].ID))
-              Domoticz.Debug('nValue: ' + str(Devices[iUnit].nValue) + ' -> ' + str(status))
-              Domoticz.Debug('sValue: ' + Devices[iUnit].sValue + ' -> ' + dimmer)
-              Domoticz.Debug('Color: ' + Devices[iUnit].Color + ' -> ' + jColor)
-              Devices[iUnit].Update(nValue=status, sValue=dimmer, Color=jColor)
-            else: # white
-             dimmer = str(jmsg["brightness"])
-             Domoticz.Debug('Updating device #' + str(Devices[iUnit].ID))
-             Domoticz.Debug('nValue: ' + str(Devices[iUnit].nValue) + ' -> ' + str(status))
-             Domoticz.Debug('sValue: ' + Devices[iUnit].sValue + ' -> ' + dimmer)
-             Devices[iUnit].Update(nValue=status, sValue=dimmer)
+            Domoticz.Debug("MQTT invalid command")
 
-          return True
+        #  Domoticz.Device(Name=unitname, Unit=iUnit,TypeName="Switch",Used=1,DeviceID=unitname).Create()
+        #  Domoticz.Device(Name=unitname, Unit=iUnit,Type=243,Subtype=29,Used=1,DeviceID=unitname).Create()
+        #  Domoticz.Device(Name=unitname, Unit=iUnit,Type=244, Subtype=62, Switchtype=13,Used=1,DeviceID=unitname).Create() # create Blinds Percentage
+        #  Domoticz.Device(Name=unitname, Unit=iUnit,Type=244, Subtype=62, Switchtype=15,Used=1,DeviceID=unitname).Create() # create Venetian Blinds EU type
+        #  Domoticz.Device(Name=unitname+" BUTTON", Unit=iUnit,TypeName="Switch",Used=0,DeviceID=unitname).Create()
+        #  Domoticz.Device(Name=unitname+" LONGPUSH", Unit=iUnit,TypeName="Switch",Used=0,DeviceID=unitname).Create()
+        #  Domoticz.Device(Name=unitname, Unit=iUnit, TypeName="Temp+Hum",Used=1,DeviceID=unitname).Create() # create Temp+Hum Type=82
+        #  for x in range(1, 256):
+        #      if x not in Devices:
+        #          iUnit=x
+        #          break
+        #  if iUnit==0:
+        #      iUnit=len(Devices)+1
+        #
+        #  Devices[iUnit].Update(nValue=1, sValue="On")
+        #  Devices[iUnit].Update(nValue=0, sValue=str(curval), BatteryLevel=int(mval))
+        #
+        #  curval = Devices[iUnit].sValue
+        #  Domoticz.Device(Name=unitname, Unit=iUnit,Type=241, Subtype=3, Switchtype=7, Used=1,DeviceID=unitname).Create() # create Color White device
+        #  Domoticz.Device(Name=unitname, Unit=iUnit,Type=241, Subtype=6, Switchtype=7, Used=1,DeviceID=unitname).Create() # create RGBZW device
+        #  jmsg = json.loads(tmsg)
+        #  if jmsg["turn"]=="on" or jmsg["turn"]=="1" or jmsg["turn"]==True:
+        return True
 
 global _plugin
 _plugin = BasePlugin()
