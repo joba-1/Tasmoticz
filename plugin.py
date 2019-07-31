@@ -10,7 +10,7 @@
         <param field="Username" label="Username" width="300px"/>
         <param field="Password" label="Password" width="300px" default="" password="true"/>
         <param field="Topic" label="Tasmota Topic Format" width="300px" default="topic/prefix/subject"/>
-        <param field="Base" label="Tasmota Base Topic" width="300px" default="">
+        <param field="Base" label="Tasmota Base Topic" width="300px" default=""/>
 
         <param field="Mode1" label="Allow switching topic and prefix" width="75px">
             <options>
