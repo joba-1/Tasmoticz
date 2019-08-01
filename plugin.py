@@ -11,7 +11,7 @@
         <br/>
     </description>
     <params>
-        <param field="Address" label="MQTT broker address" width="300px" required="true" default="127.0.0.1"/>
+        <param field="Address" label="MQTT broker address" width="300px" required="true" default="localhost"/>
         <param field="Port" label="Port" width="300px" required="true" default="1883"/>
         <param field="Username" label="Username" width="300px"/>
         <param field="Password" label="Password" width="300px" default="" password="true"/>
