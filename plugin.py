@@ -1,23 +1,24 @@
 """
-<plugin key="Tasmoticz" name="Tasmota MQTT" version="0.1.0">
+<plugin 
+    key="Tasmoticz" 
+    name="Autodiscovery of Tasmota Devices"
+    version="0.1.0"
+    author="Joachim Banzhaf" 
+    externallink="https://github.com/joba-1/Tasmoticz">
+   
     <description>
-      Plugin to discover and operate Tasmota devices through MQTT
-      <br/>
+        Plugin to discover and operate Tasmota devices through MQTT
+        <br/>
     </description>
     <params>
         <param field="Address" label="MQTT broker address" width="300px" required="true" default="127.0.0.1"/>
         <param field="Port" label="Port" width="300px" required="true" default="1883"/>
         <param field="Username" label="Username" width="300px"/>
         <param field="Password" label="Password" width="300px" default="" password="true"/>
-        <param field="Topic" label="Tasmota Topic Format" width="300px" default="topic/prefix/subject"/>
-        <param field="Base" label="Tasmota Base Topic" width="300px" default=""/>
-
-        <param field="Mode1" label="Allow switching topic and prefix" width="75px">
-            <options>
-                <option label="True" value="1"/>
-                <option label="False" value="0" default="true" />
-            </options>
-        </param>
+        
+        <param field="Mode2" label="Prefix2" width="300px" default="stat"/>
+        <param field="Mode3" label="Prefix3" width="300px" default="tele"/>
+        <param field="Mode4" label="Subscriptions" width="300px" default="%prefix%/%topic%|%topic%/%prefix%"/>
 
         <param field="Mode6" label="Logging" width="75px">
             <options>
@@ -29,47 +30,55 @@
     </params>
 </plugin>
 """
+
 errmsg = ""
 try:
- import Domoticz
+    import Domoticz
 except Exception as e:
- errmsg += "Domoticz core start error: "+str(e)
+     errmsg += "Domoticz core start error: "+str(e)
 try:
- import json
+    import json
 except Exception as e:
- errmsg += " Json import error: "+str(e)
+    errmsg += " Json import error: "+str(e)
 try:
- import time
+    import time
 except Exception as e:
- errmsg += " time import error: "+str(e)
+    errmsg += " time import error: "+str(e)
 try:
- import re
+    import re
 except Exception as e:
- errmsg += " re import error: "+str(e)
+    errmsg += " re import error: "+str(e)
 try:
- from mqtt import MqttClientTasmoticz
+    from mqtt import MqttClientTasmoticz
 except Exception as e:
- errmsg += " MQTT client import error: "+str(e)
+    errmsg += " MQTT client import error: "+str(e)
+
 
 class BasePlugin:
     mqttClient = None
 
     def __init__(self):
-     return
+        return
 
     def onStart(self):
      global errmsg
      if errmsg =="":
       try:
         Domoticz.Heartbeat(10)
+        self.topics = ['LWT', 'STATE', 'SENSOR', 'ENERGY', 'RESULT', 'STATUS', 'STATUS8', 'STATUS11']
+        self.prefix2 = Parameters["Mode2"].strip()
+        if self.prefix2 == "":
+           self.prefix2 = 'stat'
+        self.prefix3 = Parameters["Mode3"].strip()
+        if self.prefix3 == "":
+           self.prefix3 = 'tele'
+        self.subscriptions = Parameters["Mode4"].strip().split('|')
         self.debugging = Parameters["Mode6"]
-        self.topicswitch = Parameters["Mode1"]
         if self.debugging == "Verbose":
             Domoticz.Debugging(2+4+8+16+64)
         if self.debugging == "Debug":
             Domoticz.Debugging(2)
-        self.base = Parameters["Base"].strip()
-        self.topic = Parameters["Topic"].strip()
+        Domoticz.Debug("Parameters: "+str(Parameters))
         self.mqttserveraddress = Parameters["Address"].strip()
         self.mqttserverport = Parameters["Port"].strip()
         self.mqttClient = MqttClientTasmoticz(self.mqttserveraddress, self.mqttserverport, "", self.onMQTTConnected, self.onMQTTDisconnected, self.onMQTTPublish, self.onMQTTSubscribed)
@@ -82,9 +91,6 @@ class BasePlugin:
 
     def checkDevices(self):
         Domoticz.Debug("checkDevices called")
-
-    def onStop(self):
-        Domoticz.Debug("onStop called")
 
     # TODO
     def onCommand(self, Unit, Command, Level, Color):  # react to commands arrived from Domoticz
@@ -147,7 +153,13 @@ class BasePlugin:
 
     def onMQTTConnected(self):
        if self.mqttClient is not None:
-        self.mqttClient.subscribe([self.base + '#'])
+          subs = []
+          for topic in self.subscriptions:
+             topic = topic.replace('%topic%', '+')
+             subs.append(topic.replace('%prefix%', self.prefix2) + '/+')
+             subs.append(topic.replace('%prefix%', self.prefix3) + '/+')
+          Domoticz.Debug('Subscriptions: ' + str(subs)) 
+          self.mqttClient.subscribe(subs)
 
     def onMQTTDisconnected(self):
         Domoticz.Debug("onMQTTDisconnected")
@@ -159,10 +171,40 @@ class BasePlugin:
     def onMQTTPublish(self, topic, message): # process incoming MQTT statuses
         # Log all requests from mqtt broker
         try:
-            Domoticz.Debug("MQTT Topic " + str(topic) + ", Message " + str(message))
+            Domoticz.Debug("MQTT Topic " + topic + ", Message " + str(message))
         except:
             Domoticz.Debug("MQTT invalid command")
+       
+        # Check if we handle this topic tail at all 
+        subtopics = topic.split('/')
+        tail = subtopics[-1]
+        if tail not in self.topics:
+           return True
 
+        # Tasmota devices can have different FullTopic patterns.
+        # All FullTopic patterns we care about are in self.subscriptions
+        # Tasmota devices will be identified by a 25 byte hash from FullTopic without %prefix%
+
+        # Identify the subscription that matches our received subtopics
+        fulltopic = []
+        for subscription in self.subscriptions:
+           patterns = subscription.split('/')
+           for subtopic, pattern in zip(subtopics[:-1], patterns):
+              if( (pattern not in ('%topic%', '%prefix%', '+', subtopic)) or
+                  (pattern == '%prefix%' and subtopic != self.prefix2 and subtopic != self.prefix3) ):
+                 fulltopic = []
+                 break
+              if( pattern != '%prefix%' ):
+                  fulltopic.append(subtopic)
+           if fulltopic != []:
+              break
+           
+        Domoticz.Log("Device {}, Tail {}, Message {}".format('/'.join(fulltopic), tail, str(message)))
+
+        # sensor/switch from tail/message (can be more than one per device)
+        # Find device - update value
+        # Not found: create device and Request STATUS, STATUS8, STATUS10, STATUS11 for friendly name, sensor, power 
+              
         #  Domoticz.Device(Name=unitname, Unit=iUnit,TypeName="Switch",Used=1,DeviceID=unitname).Create()
         #  Domoticz.Device(Name=unitname, Unit=iUnit,Type=243,Subtype=29,Used=1,DeviceID=unitname).Create()
         #  Domoticz.Device(Name=unitname, Unit=iUnit,Type=244, Subtype=62, Switchtype=13,Used=1,DeviceID=unitname).Create() # create Blinds Percentage
