@@ -9,9 +9,10 @@ import Domoticz
 import time
 import json
 try:
- import random
+    import random
 except:
- Domoticz.Debug("Your Python environment is incomplete!")
+    Domoticz.Debug("Your Python environment is incomplete!")
+
 
 class MqttClientTasmoticz:
     address = ""
@@ -44,10 +45,10 @@ class MqttClientTasmoticz:
             return "None"
 
     def _generate_mqtt_client_id(self):
-       try:
-        return 'Domoticz_' + str(int(time.time()))+'_'+str(random.randint(1000, 9998))
-       except:
-        return 'Domoticz_' + str(int(time.time()))+'_'+'9999'
+        try:
+            return 'Domoticz_' + str(int(time.time()))+'_'+str(random.randint(1000, 9998))
+        except:
+            return 'Domoticz_' + str(int(time.time()))+'_'+'9999'
 
     def _open(self):
         Domoticz.Debug("MqttClient::open")
@@ -92,17 +93,18 @@ class MqttClientTasmoticz:
         subscriptionlist = []
         for topic in topics:
             subscriptionlist.append({'Topic': topic, 'QoS': 0})
-        
+
         if (self._connection == None or not self.isConnected):
             self._open()
         else:
-            self._connection.Send({'Verb': 'SUBSCRIBE', 'Topics': subscriptionlist})
+            self._connection.Send(
+                {'Verb': 'SUBSCRIBE', 'Topics': subscriptionlist})
 
     def close(self):
         Domoticz.Debug("MqttClient::close")
 
         if self._connection != None and self._connection.Connected():
-            self._connection.Send({ 'Verb' : 'DISCONNECT' })
+            self._connection.Send({'Verb': 'DISCONNECT'})
             self._connection.Disconnect()
 
         self._connection = None
@@ -149,7 +151,7 @@ class MqttClientTasmoticz:
             return
 
         topic = Data['Topic'] if 'Topic' in Data else ''
-        payload =  Data['Payload'].decode('utf8') if 'Payload' in Data else ''
+        payload = Data['Payload'].decode('utf8') if 'Payload' in Data else ''
 
         if Data['Verb'] == "CONNACK":
             self.isConnected = True

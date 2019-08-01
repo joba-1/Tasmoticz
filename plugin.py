@@ -35,7 +35,7 @@ errmsg = ""
 try:
     import Domoticz
 except Exception as e:
-     errmsg += "Domoticz core start error: "+str(e)
+    errmsg += "Domoticz core start error: "+str(e)
 try:
     import json
 except Exception as e:
@@ -61,42 +61,47 @@ class BasePlugin:
         return
 
     def onStart(self):
-     global errmsg
-     if errmsg =="":
-      try:
-        Domoticz.Heartbeat(10)
-        self.topics = ['LWT', 'STATE', 'SENSOR', 'ENERGY', 'RESULT', 'STATUS', 'STATUS8', 'STATUS11']
-        self.prefix2 = Parameters["Mode2"].strip()
-        if self.prefix2 == "":
-           self.prefix2 = 'stat'
-        self.prefix3 = Parameters["Mode3"].strip()
-        if self.prefix3 == "":
-           self.prefix3 = 'tele'
-        self.subscriptions = Parameters["Mode4"].strip().split('|')
-        self.debugging = Parameters["Mode6"]
-        if self.debugging == "Verbose":
-            Domoticz.Debugging(2+4+8+16+64)
-        if self.debugging == "Debug":
-            Domoticz.Debugging(2)
-        Domoticz.Debug("Parameters: "+str(Parameters))
-        self.mqttserveraddress = Parameters["Address"].strip()
-        self.mqttserverport = Parameters["Port"].strip()
-        self.mqttClient = MqttClientTasmoticz(self.mqttserveraddress, self.mqttserverport, "", self.onMQTTConnected, self.onMQTTDisconnected, self.onMQTTPublish, self.onMQTTSubscribed)
-      except Exception as e:
-        Domoticz.Error("MQTT client start error: "+str(e))
-        self.mqttClient = None
-     else:
-        Domoticz.Error("Your Domoticz Python environment is not functional! "+errmsg)
-        self.mqttClient = None
+        global errmsg
+        if errmsg == "":
+            try:
+                Domoticz.Heartbeat(10)
+                self.topics = ['LWT', 'STATE', 'SENSOR', 'ENERGY',
+                               'RESULT', 'STATUS', 'STATUS8', 'STATUS11']
+                self.prefix2 = Parameters["Mode2"].strip()
+                if self.prefix2 == "":
+                    self.prefix2 = 'stat'
+                self.prefix3 = Parameters["Mode3"].strip()
+                if self.prefix3 == "":
+                    self.prefix3 = 'tele'
+                self.subscriptions = Parameters["Mode4"].strip().split('|')
+                self.debugging = Parameters["Mode6"]
+                if self.debugging == "Verbose":
+                    Domoticz.Debugging(2+4+8+16+64)
+                if self.debugging == "Debug":
+                    Domoticz.Debugging(2)
+                Domoticz.Debug("Parameters: "+str(Parameters))
+                self.mqttserveraddress = Parameters["Address"].strip()
+                self.mqttserverport = Parameters["Port"].strip()
+                self.mqttClient = MqttClientTasmoticz(self.mqttserveraddress, self.mqttserverport, "",
+                                                      self.onMQTTConnected, self.onMQTTDisconnected, self.onMQTTPublish, self.onMQTTSubscribed)
+            except Exception as e:
+                Domoticz.Error("MQTT client start error: "+str(e))
+                self.mqttClient = None
+        else:
+            Domoticz.Error(
+                "Your Domoticz Python environment is not functional! "+errmsg)
+            self.mqttClient = None
 
     def checkDevices(self):
         Domoticz.Debug("checkDevices called")
 
     # TODO
-    def onCommand(self, Unit, Command, Level, Color):  # react to commands arrived from Domoticz
+    # react to commands arrived from Domoticz
+    def onCommand(self, Unit, Command, Level, Color):
         # Log all requests from domoticz
         try:
-            Domoticz.Debug("Domoticz Unit " + Unit + ", Command " + Command + ", Level " + str(Level) + ", Color:" + Color)
+            Domoticz.Debug("Domoticz Unit " + Unit + ", Command " +
+                           Command + ", Level " + str(Level) + ", Color:" + Color)
         except:
             Domoticz.Debug("Domoticz invalid command")
 
@@ -127,39 +132,39 @@ class BasePlugin:
         return True
 
     def onConnect(self, Connection, Status, Description):
-       if self.mqttClient is not None:
-        self.mqttClient.onConnect(Connection, Status, Description)
+        if self.mqttClient is not None:
+            self.mqttClient.onConnect(Connection, Status, Description)
 
     def onDisconnect(self, Connection):
-       if self.mqttClient is not None:
-        self.mqttClient.onDisconnect(Connection)
+        if self.mqttClient is not None:
+            self.mqttClient.onDisconnect(Connection)
 
     def onMessage(self, Connection, Data):
-       if self.mqttClient is not None:
-        self.mqttClient.onMessage(Connection, Data)
+        if self.mqttClient is not None:
+            self.mqttClient.onMessage(Connection, Data)
 
     def onHeartbeat(self):
-      Domoticz.Debug("Heartbeating...")
-      if self.mqttClient is not None:
-       try:
-        # Reconnect if connection has dropped
-        if (self.mqttClient._connection is None) or (not self.mqttClient.isConnected):
-            Domoticz.Debug("Reconnecting")
-            self.mqttClient._open()
-        else:
-            self.mqttClient.ping()
-       except Exception as e:
-        Domoticz.Error(str(e))
+        Domoticz.Debug("Heartbeating...")
+        if self.mqttClient is not None:
+            try:
+                # Reconnect if connection has dropped
+                if (self.mqttClient._connection is None) or (not self.mqttClient.isConnected):
+                    Domoticz.Debug("Reconnecting")
+                    self.mqttClient._open()
+                else:
+                    self.mqttClient.ping()
+            except Exception as e:
+                Domoticz.Error(str(e))
 
     def onMQTTConnected(self):
-       if self.mqttClient is not None:
-          subs = []
-          for topic in self.subscriptions:
-             topic = topic.replace('%topic%', '+')
-             subs.append(topic.replace('%prefix%', self.prefix2) + '/+')
-             subs.append(topic.replace('%prefix%', self.prefix3) + '/+')
-          Domoticz.Debug('Subscriptions: ' + str(subs)) 
-          self.mqttClient.subscribe(subs)
+        if self.mqttClient is not None:
+            subs = []
+            for topic in self.subscriptions:
+                topic = topic.replace('%topic%', '+')
+                subs.append(topic.replace('%prefix%', self.prefix2) + '/+')
+                subs.append(topic.replace('%prefix%', self.prefix3) + '/+')
+            Domoticz.Debug('Subscriptions: ' + str(subs))
+            self.mqttClient.subscribe(subs)
 
     def onMQTTDisconnected(self):
         Domoticz.Debug("onMQTTDisconnected")
@@ -168,18 +173,18 @@ class BasePlugin:
         Domoticz.Debug("onMQTTSubscribed")
 
     # TODO
-    def onMQTTPublish(self, topic, message): # process incoming MQTT statuses
+    def onMQTTPublish(self, topic, message):  # process incoming MQTT statuses
         # Log all requests from mqtt broker
         try:
             Domoticz.Debug("MQTT Topic " + topic + ", Message " + str(message))
         except:
             Domoticz.Debug("MQTT invalid command")
-       
-        # Check if we handle this topic tail at all 
+
+        # Check if we handle this topic tail at all
         subtopics = topic.split('/')
         tail = subtopics[-1]
         if tail not in self.topics:
-           return True
+            return True
 
         # Tasmota devices can have different FullTopic patterns.
         # All FullTopic patterns we care about are in self.subscriptions
@@ -188,23 +193,24 @@ class BasePlugin:
         # Identify the subscription that matches our received subtopics
         fulltopic = []
         for subscription in self.subscriptions:
-           patterns = subscription.split('/')
-           for subtopic, pattern in zip(subtopics[:-1], patterns):
-              if( (pattern not in ('%topic%', '%prefix%', '+', subtopic)) or
-                  (pattern == '%prefix%' and subtopic != self.prefix2 and subtopic != self.prefix3) ):
-                 fulltopic = []
-                 break
-              if( pattern != '%prefix%' ):
-                  fulltopic.append(subtopic)
-           if fulltopic != []:
-              break
-           
-        Domoticz.Log("Device {}, Tail {}, Message {}".format('/'.join(fulltopic), tail, str(message)))
+            patterns = subscription.split('/')
+            for subtopic, pattern in zip(subtopics[:-1], patterns):
+                if((pattern not in ('%topic%', '%prefix%', '+', subtopic)) or
+                        (pattern == '%prefix%' and subtopic != self.prefix2 and subtopic != self.prefix3)):
+                    fulltopic = []
+                    break
+                if(pattern != '%prefix%'):
+                    fulltopic.append(subtopic)
+            if fulltopic != []:
+                break
+
+        Domoticz.Log("Device {}, Tail {}, Message {}".format(
+            '/'.join(fulltopic), tail, str(message)))
 
         # sensor/switch from tail/message (can be more than one per device)
         # Find device - update value
-        # Not found: create device and Request STATUS, STATUS8, STATUS10, STATUS11 for friendly name, sensor, power 
-              
+        # Not found: create device and Request STATUS, STATUS8, STATUS10, STATUS11 for friendly name, sensor, power
+
         #  Domoticz.Device(Name=unitname, Unit=iUnit,TypeName="Switch",Used=1,DeviceID=unitname).Create()
         #  Domoticz.Device(Name=unitname, Unit=iUnit,Type=243,Subtype=29,Used=1,DeviceID=unitname).Create()
         #  Domoticz.Device(Name=unitname, Unit=iUnit,Type=244, Subtype=62, Switchtype=13,Used=1,DeviceID=unitname).Create() # create Blinds Percentage
@@ -229,32 +235,40 @@ class BasePlugin:
         #  if jmsg["turn"]=="on" or jmsg["turn"]=="1" or jmsg["turn"]==True:
         return True
 
+
 global _plugin
 _plugin = BasePlugin()
+
 
 def onStart():
     global _plugin
     _plugin.onStart()
 
+
 def onStop():
     global _plugin
     _plugin.onStop()
+
 
 def onConnect(Connection, Status, Description):
     global _plugin
     _plugin.onConnect(Connection, Status, Description)
 
+
 def onDisconnect(Connection):
     global _plugin
     _plugin.onDisconnect(Connection)
+
 
 def onMessage(Connection, Data):
     global _plugin
     _plugin.onMessage(Connection, Data)
 
+
 def onCommand(Unit, Command, Level, Color):
     global _plugin
     _plugin.onCommand(Unit, Command, Level, Color)
+
 
 def onHeartbeat():
     global _plugin
