@@ -58,6 +58,8 @@ class BasePlugin:
     mqttClient = None
 
     def __init__(self):
+        self.topics = ['LWT', 'STATE', 'SENSOR', 'ENERGY',
+                       'RESULT', 'STATUS', 'STATUS2', 'STATUS5', 'STATUS8', 'STATUS11']
         return
 
     def onStart(self):
@@ -65,8 +67,6 @@ class BasePlugin:
         if errmsg == "":
             try:
                 Domoticz.Heartbeat(10)
-                self.topics = ['LWT', 'STATE', 'SENSOR', 'ENERGY',
-                               'RESULT', 'STATUS', 'STATUS2', 'STATUS5', 'STATUS8', 'STATUS11']
                 self.prefix2 = Parameters["Mode2"].strip()
                 if self.prefix2 == "":
                     self.prefix2 = 'stat'
@@ -172,7 +172,7 @@ class BasePlugin:
     def onMQTTSubscribed(self):
         Domoticz.Debug("onMQTTSubscribed")
 
-    def findDevice(self, fulltopic):
+    def findDevices(self, fulltopic):
         return None
     
     def findOrCreateDevices(self, fulltopic, jmsg):
@@ -181,19 +181,19 @@ class BasePlugin:
     def findResultDevice(self, fulltopic, jmsg):
         return None
     
-    def findStatusDevice(self, fulltopic, jmsg):
+    def findStatusDevices(self, fulltopic, jmsg):
         return None
     
-    def findSensorDevice(self, fulltopic, jmsg):
+    def findSensorDevices(self, fulltopic, jmsg):
         return None
     
-    def findEnergyDevice(self, fulltopic, jmsg):
+    def findEnergyDevices(self, fulltopic, jmsg):
         return None
     
-    def updateDeviceState(self, idx, jmsg):
+    def updateDeviceStates(self, idx, jmsg):
         pass
     
-    def updateDeviceResult(self, idx, jmsg):
+    def updateDeviceResults(self, idx, jmsg):
         pass
     
     def updateDeviceStatus(self, idx, jmsg):
@@ -258,23 +258,23 @@ class BasePlugin:
                     self.updateDeviceResult(idx, jmsg)
                 
             case 'STATUS':
-                for idx in self.findStatusDevice(fulltopic, jmsg):
+                for idx in self.findStatusDevices(fulltopic, jmsg):
                     self.updateDeviceStatus(idx, jmsg)
                 
             case 'STATUS2':
-                for idx in self.findDevice(fulltopic):
+                for idx in self.findDevices(fulltopic):
                     self.updateDeviceVersion(idx, jmsg)
                 
             case 'STATUS5':
-                for idx in self.findDevice(fulltopic):
+                for idx in self.findDevices(fulltopic):
                     self.updateDeviceNet(idx, jmsg)
                 
             case 'SENSOR':
-                for idx in self.findSensorDevice(fulltopic, jmsg):
+                for idx in self.findSensorDevices(fulltopic, jmsg):
                     self.updateDeviceSensor(idx, jmsg)
                 
             case 'ENERGY':
-                for idx in self.findEnergyDevice(fulltopic, jmsg):
+                for idx in self.findEnergyDevices(fulltopic, jmsg):
                     self.updateDeviceEnergy(idx, jmsg)
                 
         # sensor/switch from tail/message (can be more than one per device)
