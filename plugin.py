@@ -66,7 +66,7 @@ class BasePlugin:
             try:
                 Domoticz.Heartbeat(10)
                 self.topics = ['LWT', 'STATE', 'SENSOR', 'ENERGY',
-                               'RESULT', 'STATUS', 'STATUS8', 'STATUS11']
+                               'RESULT', 'STATUS', 'STATUS2', 'STATUS5', 'STATUS8', 'STATUS11']
                 self.prefix2 = Parameters["Mode2"].strip()
                 if self.prefix2 == "":
                     self.prefix2 = 'stat'
@@ -172,6 +172,45 @@ class BasePlugin:
     def onMQTTSubscribed(self):
         Domoticz.Debug("onMQTTSubscribed")
 
+    def findDevice(self, fulltopic):
+        return None
+    
+    def findOrCreateDevices(self, fulltopic, jmsg):
+        return None
+    
+    def findResultDevice(self, fulltopic, jmsg):
+        return None
+    
+    def findStatusDevice(self, fulltopic, jmsg):
+        return None
+    
+    def findSensorDevice(self, fulltopic, jmsg):
+        return None
+    
+    def findEnergyDevice(self, fulltopic, jmsg):
+        return None
+    
+    def updateDeviceState(self, idx, jmsg):
+        pass
+    
+    def updateDeviceResult(self, idx, jmsg):
+        pass
+    
+    def updateDeviceStatus(self, idx, jmsg):
+        pass
+    
+    def updateDeviceVersion(self, idx, jmsg):
+        pass
+    
+    def updateDeviceNet(self, idx, jmsg):
+        pass
+    
+    def updateDeviceSensor(self, idx, jmsg):
+        pass
+    
+    def updateDeviceEnergy(self, idx, jmsg):
+        pass
+    
     # TODO
     def onMQTTPublish(self, topic, message):  # process incoming MQTT statuses
         # Log all requests from mqtt broker
@@ -188,7 +227,7 @@ class BasePlugin:
 
         # Tasmota devices can have different FullTopic patterns.
         # All FullTopic patterns we care about are in self.subscriptions
-        # Tasmota devices will be identified by a 25 byte hash from FullTopic without %prefix%
+        # Tasmota devices will be identified by a max 25 byte hex hash from FullTopic without %prefix%
 
         # Identify the subscription that matches our received subtopics
         fulltopic = []
@@ -207,6 +246,37 @@ class BasePlugin:
         Domoticz.Log("Device {}, Tail {}, Message {}".format(
             '/'.join(fulltopic), tail, str(message)))
 
+        jmsg = json.loads(message)
+        switch (tail):
+            case 'STATE':
+                for idx in self.findOrCreateDevices(fulltopic, jmsg):
+                    self.updateDeviceState(idx, jmsg)
+                    
+            case 'RESULT':
+                idx = self.findResultDevice(fulltopic, jmsg)
+                if idx != None:
+                    self.updateDeviceResult(idx, jmsg)
+                
+            case 'STATUS':
+                for idx in self.findStatusDevice(fulltopic, jmsg):
+                    self.updateDeviceStatus(idx, jmsg)
+                
+            case 'STATUS2':
+                for idx in self.findDevice(fulltopic):
+                    self.updateDeviceVersion(idx, jmsg)
+                
+            case 'STATUS5':
+                for idx in self.findDevice(fulltopic):
+                    self.updateDeviceNet(idx, jmsg)
+                
+            case 'SENSOR':
+                for idx in self.findSensorDevice(fulltopic, jmsg):
+                    self.updateDeviceSensor(idx, jmsg)
+                
+            case 'ENERGY':
+                for idx in self.findEnergyDevice(fulltopic, jmsg):
+                    self.updateDeviceEnergy(idx, jmsg)
+                
         # sensor/switch from tail/message (can be more than one per device)
         # Find device - update value
         # Not found: create device and Request STATUS, STATUS8, STATUS10, STATUS11 for friendly name, sensor, power
