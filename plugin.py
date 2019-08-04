@@ -173,7 +173,7 @@ class BasePlugin:
 
     def findDevices(self, fullname):
         idxs = []
-        for Device in Domoticz.Devices:
+        for Device in Devices:
             if Device.DeviceID == '{:016x}'.format(hash(fullname)):
                 idxs.append(Device.ID)
         return idxs
@@ -184,16 +184,16 @@ class BasePlugin:
         for attr in baseattrs:
             try:
                 value = jmsg[attr]
+                states.append(fullname+'-'+attr, value)
             except:
                 pass
-            states.append(fullname+'-'+attr, value)
         wifiattrs = ['RSSI']
         for attr in wifiattrs:
             try:
                 value = jmsg['Wifi'][attr]
+                states.append(fullname+'-'+attr, value)
             except:
                 pass
-            states.append(fullname+'-'+attr, value)
         return states
 
     # TODO check which methods could be functions
@@ -218,16 +218,16 @@ class BasePlugin:
         return devices
     
     def findResultDevice(self, fulltopic, jmsg):
-        return None
+        return []
     
     def findStatusDevices(self, fulltopic, jmsg):
-        return None
+        return []
     
     def findSensorDevices(self, fulltopic, jmsg):
-        return None
+        return []
     
     def findEnergyDevices(self, fulltopic, jmsg):
-        return None
+        return []
     
     def updateDeviceState(self, idx, jmsg):
         pass
@@ -289,7 +289,11 @@ class BasePlugin:
         Domoticz.Log("Device {}, Tail {}, Message {}".format(
             fullname, tail, str(message)))
 
-        jmsg = json.loads(message)
+        try:
+            jmsg = json.loads(message)
+        except:
+            jmsg = json.loads('{}')
+
         if tail == 'STATE':
             for idx, value in self.findOrCreateDevices(fullname, jmsg):
                 self.updateDeviceState(idx, value)
