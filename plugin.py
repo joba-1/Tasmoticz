@@ -63,7 +63,6 @@ class BasePlugin:
         return
 
     def onStart(self):
-        global errmsg
         if errmsg == "":
             try:
                 Domoticz.Heartbeat(10)
@@ -179,7 +178,7 @@ class BasePlugin:
                 idxs.append(Device.ID)
         return idxs
     
-    def getStateDevices(fullname, jmsg):
+    def getStateDevices(self, fullname, jmsg):
         states = []
         baseattrs = ['POWER', 'POWER1', 'POWER2', 'POWER3', 'Heap', 'LoadAvg']
         for attr in baseattrs:
@@ -208,14 +207,14 @@ class BasePlugin:
         devices = []
         idxs = self.findDevices(fullname)
         # deviceName derived from fullname and attribute name like POWER1, POWER2, Heap, LoadAvg, Wifi.RSSI
-        for deviceName, deviceValue in getStateDevices(fullname, jmsg):
+        for deviceName, deviceValue in self.getStateDevices(fullname, jmsg):
             Domoticz.Debug('Name: {}, Value: {}'.format(deviceName, deviceValue))
             idx = self.deviceByName(idxs, deviceName)
             if idx == None:
                 idx = self.createDevice(fullname, deviceName)
             if idx != None:
-                devices.append(idx, values)
-        # list of tuples (domoticz.id, (value[s]))
+                devices.append(idx, deviceValue)
+        # list of tuples (domoticz.id, value[s]))
         return devices
     
     def findResultDevice(self, fulltopic, jmsg):
@@ -230,10 +229,10 @@ class BasePlugin:
     def findEnergyDevices(self, fulltopic, jmsg):
         return None
     
-    def updateDeviceStates(self, idx, jmsg):
+    def updateDeviceState(self, idx, jmsg):
         pass
     
-    def updateDeviceResults(self, idx, jmsg):
+    def updateDeviceResult(self, idx, jmsg):
         pass
     
     def updateDeviceStatus(self, idx, jmsg):
@@ -291,35 +290,34 @@ class BasePlugin:
             fullname, tail, str(message)))
 
         jmsg = json.loads(message)
-        switch (tail):
-            case 'STATE':
-                for idx, value in self.findOrCreateDevices(fullname, jmsg):
-                    self.updateDeviceState(idx, value)
+        if tail == 'STATE':
+            for idx, value in self.findOrCreateDevices(fullname, jmsg):
+                self.updateDeviceState(idx, value)
                     
-            case 'RESULT':
-                idx = self.findResultDevice(fulltopic, jmsg)
-                if idx != None:
-                    self.updateDeviceResult(idx, jmsg)
+        elif tail == 'RESULT':
+            idx = self.findResultDevice(fulltopic, jmsg)
+            if idx != None:
+                self.updateDeviceResult(idx, jmsg)
                 
-            case 'STATUS':
-                for idx in self.findStatusDevices(fulltopic, jmsg):
-                    self.updateDeviceStatus(idx, jmsg)
+        elif tail == 'STATUS':
+            for idx in self.findStatusDevices(fulltopic, jmsg):
+                self.updateDeviceStatus(idx, jmsg)
                 
-            case 'STATUS2':
-                for idx in self.findDevices(fulltopic):
-                    self.updateDeviceVersion(idx, jmsg)
+        elif tail == 'STATUS2':
+            for idx in self.findDevices(fulltopic):
+                self.updateDeviceVersion(idx, jmsg)
                 
-            case 'STATUS5':
-                for idx in self.findDevices(fulltopic):
-                    self.updateDeviceNet(idx, jmsg)
+        elif tail == 'STATUS5':
+            for idx in self.findDevices(fulltopic):
+                self.updateDeviceNet(idx, jmsg)
                 
-            case 'SENSOR':
-                for idx in self.findSensorDevices(fulltopic, jmsg):
-                    self.updateDeviceSensor(idx, jmsg)
+        elif tail == 'SENSOR':
+            for idx in self.findSensorDevices(fulltopic, jmsg):
+                self.updateDeviceSensor(idx, jmsg)
                 
-            case 'ENERGY':
-                for idx in self.findEnergyDevices(fulltopic, jmsg):
-                    self.updateDeviceEnergy(idx, jmsg)
+        elif tail == 'ENERGY':
+            for idx in self.findEnergyDevices(fulltopic, jmsg):
+                self.updateDeviceEnergy(idx, jmsg)
                 
         # sensor/switch from tail/message (can be more than one per device)
         # Find device - update value
