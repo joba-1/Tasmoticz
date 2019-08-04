@@ -173,10 +173,25 @@ class BasePlugin:
         Domoticz.Debug("onMQTTSubscribed")
 
     def findDevices(self, fulltopic):
-        return None
+        idxs = []
+        for Device in Domoticz.Devices:
+            if Device.DeviceID == '{:016x}'.format(hash(fulltopic)):
+                idxs.append(Device.ID)
+        return idxs
     
     def findOrCreateDevices(self, fulltopic, jmsg):
-        return None
+        devices = []
+        idxs = self.findDevices(fulltopic)
+        # device name derived from Tasmota json path
+        # device values are tuples of Tasmota sensors like (temp, hum) or (lux)
+        for deviceName, deviceValues in getStateDevices(jmsg):
+            idx = deviceByName(idxs, deviceName)
+            if idx == None:
+                idx = createDevice(fulltopic, deviceName)
+            if idx != None:
+                devices.append(idx, values)
+        # list of tuples (domoticz.id, (value[s]))
+        return devices
     
     def findResultDevice(self, fulltopic, jmsg):
         return None
