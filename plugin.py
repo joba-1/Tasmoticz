@@ -172,22 +172,47 @@ class BasePlugin:
     def onMQTTSubscribed(self):
         Domoticz.Debug("onMQTTSubscribed")
 
-    def findDevices(self, fulltopic):
+    def findDevices(self, fullname):
         idxs = []
         for Device in Domoticz.Devices:
-            if Device.DeviceID == '{:016x}'.format(hash(fulltopic)):
+            if Device.DeviceID == '{:016x}'.format(hash(fullname)):
                 idxs.append(Device.ID)
         return idxs
     
-    def findOrCreateDevices(self, fulltopic, jmsg):
+    def getStateDevices(fullname, jmsg):
+        states = []
+        baseattrs = ['POWER', 'POWER1', 'POWER2', 'POWER3', 'Heap', 'LoadAvg']
+        for attr in baseattrs:
+            try:
+                value = jmsg[attr]
+            except:
+                pass
+            states.append(fullname+'-'+attr, value)
+        wifiattrs = ['RSSI']
+        for attr in wifiattrs:
+            try:
+                value = jmsg['Wifi'][attr]
+            except:
+                pass
+            states.append(fullname+'-'+attr, value)
+        return states
+
+    # TODO check which methods could be functions
+    def deviceByName(self, idxs, deviceName):
+        return None
+
+    def createDevice(self, fullname, deviceName):
+        return None
+
+    def findOrCreateDevices(self, fullname, jmsg):
         devices = []
-        idxs = self.findDevices(fulltopic)
-        # device name derived from Tasmota json path
-        # device values are tuples of Tasmota sensors like (temp, hum) or (lux)
-        for deviceName, deviceValues in getStateDevices(jmsg):
-            idx = deviceByName(idxs, deviceName)
+        idxs = self.findDevices(fullname)
+        # deviceName derived from fullname and attribute name like POWER1, POWER2, Heap, LoadAvg, Wifi.RSSI
+        for deviceName, deviceValue in getStateDevices(fullname, jmsg):
+            Domoticz.Debug('Name: {}, Value: {}'.format(deviceName, deviceValue))
+            idx = self.deviceByName(idxs, deviceName)
             if idx == None:
-                idx = createDevice(fulltopic, deviceName)
+                idx = self.createDevice(fullname, deviceName)
             if idx != None:
                 devices.append(idx, values)
         # list of tuples (domoticz.id, (value[s]))
@@ -250,22 +275,26 @@ class BasePlugin:
             patterns = subscription.split('/')
             for subtopic, pattern in zip(subtopics[:-1], patterns):
                 if((pattern not in ('%topic%', '%prefix%', '+', subtopic)) or
-                        (pattern == '%prefix%' and subtopic != self.prefix2 and subtopic != self.prefix3)):
+                        (pattern == '%prefix%' and subtopic != self.prefix2 and subtopic != self.prefix3) or
+                        (pattern == '%topic%' and subtopic == 'sonoff')):
                     fulltopic = []
                     break
                 if(pattern != '%prefix%'):
                     fulltopic.append(subtopic)
             if fulltopic != []:
                 break
+        fullname = '/'.join(fulltopic)
 
+        # fulltopic should now contain all subtopic parts except for %prefix%es and tail
+        # I.e. fulltopic is uniquely identifying the sensor or button refered by the message
         Domoticz.Log("Device {}, Tail {}, Message {}".format(
-            '/'.join(fulltopic), tail, str(message)))
+            fullname, tail, str(message)))
 
         jmsg = json.loads(message)
         switch (tail):
             case 'STATE':
-                for idx in self.findOrCreateDevices(fulltopic, jmsg):
-                    self.updateDeviceState(idx, jmsg)
+                for idx, value in self.findOrCreateDevices(fullname, jmsg):
+                    self.updateDeviceState(idx, value)
                     
             case 'RESULT':
                 idx = self.findResultDevice(fulltopic, jmsg)
