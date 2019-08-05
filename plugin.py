@@ -53,7 +53,6 @@ try:
 except Exception as e:
     errmsg += " MQTT client import error: "+str(e)
 
-
 class BasePlugin:
     mqttClient = None
 
@@ -178,20 +177,21 @@ class BasePlugin:
                 idxs.append(Device.ID)
         return idxs
     
-    def getStateDevices(self, fullname, jmsg):
+    def getStateDevices(self, fullname, message):
         states = []
         baseattrs = ['POWER', 'POWER1', 'POWER2', 'POWER3', 'Heap', 'LoadAvg']
         for attr in baseattrs:
             try:
-                value = jmsg[attr]
-                states.append(fullname+'-'+attr, value)
+                value = message[attr]
+                states.append((fullname+'-'+attr, value))
             except:
                 pass
+
         wifiattrs = ['RSSI']
         for attr in wifiattrs:
             try:
-                value = jmsg['Wifi'][attr]
-                states.append(fullname+'-'+attr, value)
+                value = message['Wifi'][attr]
+                states.append((fullname+'-'+attr, value))
             except:
                 pass
         return states
@@ -203,12 +203,12 @@ class BasePlugin:
     def createDevice(self, fullname, deviceName):
         return None
 
-    def findOrCreateDevices(self, fullname, jmsg):
+    def findOrCreateDevices(self, fullname, message):
         devices = []
         idxs = self.findDevices(fullname)
         # deviceName derived from fullname and attribute name like POWER1, POWER2, Heap, LoadAvg, Wifi.RSSI
-        for deviceName, deviceValue in self.getStateDevices(fullname, jmsg):
-            Domoticz.Debug('Name: {}, Value: {}'.format(deviceName, deviceValue))
+        for deviceName, deviceValue in self.getStateDevices(fullname, message):
+            Domoticz.Debug('findOrCreateDevices(): Name: {}, Value: {}'.format(deviceName, deviceValue))
             idx = self.deviceByName(idxs, deviceName)
             if idx == None:
                 idx = self.createDevice(fullname, deviceName)
@@ -253,10 +253,7 @@ class BasePlugin:
     # TODO
     def onMQTTPublish(self, topic, message):  # process incoming MQTT statuses
         # Log all requests from mqtt broker
-        try:
-            Domoticz.Debug("MQTT Topic " + topic + ", Message " + str(message))
-        except:
-            Domoticz.Debug("MQTT invalid command")
+        Domoticz.Debug("onMQTTPublish(): topic: {}, message: {}".format(topic, str(message)))
 
         # Check if we handle this topic tail at all
         subtopics = topic.split('/')
@@ -282,46 +279,45 @@ class BasePlugin:
                     fulltopic.append(subtopic)
             if fulltopic != []:
                 break
+        
+        if not fulltopic:
+            return True
+
         fullname = '/'.join(fulltopic)
 
-        # fulltopic should now contain all subtopic parts except for %prefix%es and tail
-        # I.e. fulltopic is uniquely identifying the sensor or button refered by the message
-        Domoticz.Log("Device {}, Tail {}, Message {}".format(
+        # fullname should now contain all subtopic parts except for %prefix%es and tail
+        # I.e. fullname is uniquely identifying the sensor or button refered by the message
+        Domoticz.Log("onMQTTPublish(): device {}, tail {}, message {}".format(
             fullname, tail, str(message)))
 
-        try:
-            jmsg = json.loads(message)
-        except:
-            jmsg = json.loads('{}')
-
         if tail == 'STATE':
-            for idx, value in self.findOrCreateDevices(fullname, jmsg):
+            for idx, value in self.findOrCreateDevices(fullname, message):
                 self.updateDeviceState(idx, value)
                     
         elif tail == 'RESULT':
-            idx = self.findResultDevice(fulltopic, jmsg)
+            idx = self.findResultDevice(fulltopic, message)
             if idx != None:
-                self.updateDeviceResult(idx, jmsg)
+                self.updateDeviceResult(idx, message)
                 
         elif tail == 'STATUS':
-            for idx in self.findStatusDevices(fulltopic, jmsg):
-                self.updateDeviceStatus(idx, jmsg)
+            for idx in self.findStatusDevices(fulltopic, message):
+                self.updateDeviceStatus(idx, message)
                 
         elif tail == 'STATUS2':
             for idx in self.findDevices(fulltopic):
-                self.updateDeviceVersion(idx, jmsg)
+                self.updateDeviceVersion(idx, message)
                 
         elif tail == 'STATUS5':
             for idx in self.findDevices(fulltopic):
-                self.updateDeviceNet(idx, jmsg)
+                self.updateDeviceNet(idx, message)
                 
         elif tail == 'SENSOR':
-            for idx in self.findSensorDevices(fulltopic, jmsg):
-                self.updateDeviceSensor(idx, jmsg)
+            for idx in self.findSensorDevices(fulltopic, message):
+                self.updateDeviceSensor(idx, message)
                 
         elif tail == 'ENERGY':
-            for idx in self.findEnergyDevices(fulltopic, jmsg):
-                self.updateDeviceEnergy(idx, jmsg)
+            for idx in self.findEnergyDevices(fulltopic, message):
+                self.updateDeviceEnergy(idx, message)
                 
         # sensor/switch from tail/message (can be more than one per device)
         # Find device - update value
