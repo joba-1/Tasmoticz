@@ -52,6 +52,11 @@ try:
     from mqtt import MqttClientTasmoticz
 except Exception as e:
     errmsg += " MQTT client import error: "+str(e)
+try:
+    import binascii
+except Exception as e:
+    errmsg += " binascii import error: "+str(e)
+
 
 class BasePlugin:
     mqttClient = None
@@ -89,6 +94,7 @@ class BasePlugin:
             Domoticz.Error(
                 "Your Domoticz Python environment is not functional! "+errmsg)
             self.mqttClient = None
+        #Domoticz.Debug("started on {}".format(sys.version))
 
     def checkDevices(self):
         Domoticz.Debug("checkDevices called")
@@ -161,7 +167,7 @@ class BasePlugin:
                 topic = topic.replace('%topic%', '+')
                 subs.append(topic.replace('%prefix%', self.prefix2) + '/+')
                 subs.append(topic.replace('%prefix%', self.prefix3) + '/+')
-            Domoticz.Debug('Subscriptions: ' + str(subs))
+            Domoticz.Debug('onMQTTConnected: Subscriptions: {}'.format(repr(subs)))
             self.mqttClient.subscribe(subs)
 
     def onMQTTDisconnected(self):
@@ -170,11 +176,16 @@ class BasePlugin:
     def onMQTTSubscribed(self):
         Domoticz.Debug("onMQTTSubscribed")
 
-    def findDevices(self, fullname):
+    def findDevices(self, fullName):
         idxs = []
-        for Device in Devices:
-            if Device.DeviceID == '{:016x}'.format(hash(fullname)):
-                idxs.append(Device.ID)
+        deviceHash = self.deviceId(fullName)
+        for device in Devices:
+            deviceId = Devices[device].DeviceID
+            # Domoticz.Debug('findDevices(): Fullname: {}, Hash: {}, DeviceId: {}'.format(fullName, deviceHash, deviceId))
+            if deviceId == deviceHash:
+                idxs.append(device)
+        
+        Domoticz.Debug('findDevices(): Fullname: {}, Idxs {}'.format(fullName, repr(idxs)))
         return idxs
     
     def getStateDevices(self, fullname, message):
@@ -183,7 +194,7 @@ class BasePlugin:
         for attr in baseattrs:
             try:
                 value = message[attr]
-                states.append((fullname+'-'+attr, value))
+                states.append((fullname+' '+attr, attr, value))
             except:
                 pass
 
@@ -191,31 +202,69 @@ class BasePlugin:
         for attr in wifiattrs:
             try:
                 value = message['Wifi'][attr]
-                states.append((fullname+'-'+attr, value))
+                states.append((fullname+' '+attr, attr, value))
             except:
                 pass
         return states
 
-    # TODO check which methods could be functions
+    # TODO check which methods could be functions (i.e dont use self)
+
+    def deviceId(self, deviceName):
+        return '{:08X}'.format(binascii.crc32(deviceName.encode('utf8')) & 0xffffffff)
+
     def deviceByName(self, idxs, deviceName):
+        for idx in idxs:
+            try:
+                if Devices[idx].Options['Name'] == deviceName:
+                    return idx
+            except:
+                pass
         return None
 
-    def createDevice(self, fullname, deviceName):
+    def createDevice(self, fullName, deviceAttr, deviceName):
+        ''' 
+        Create domoticz device for deviceName
+        DeviceID is hash of fullname
+        Options['Name'] is the devicename (i.e. "fullname attr")
+        Description later will also contain devicename, plugin name and date of creation
+        '''
+
+        for idx in range(1, 512):
+            if idx not in Devices:
+                break
+        
+        if deviceAttr in ['POWER', 'POWER1', 'POWER2', 'POWER3']:
+            deviceHash = self.deviceId(fullName)
+            Domoticz.Device(Name=deviceName, Unit=idx, TypeName="Switch", Used=1, Options={ 'Name': deviceName }, Description=deviceName, DeviceID=deviceHash).Create()
+            if idx in Devices:
+                # Remove hardware/plugin name from device name
+                Devices[idx].Update(nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=deviceName, SuppressTriggers=True)
+                Domoticz.Log("Created Device ID: {}, Name: {}, On: {}, Hash: {}".format(idx, deviceName, fullName, deviceHash))
+                return idx
+            Domoticz.Error("Failed creating Device ID: {}, Name: {}, On: {}".format(idx, deviceName, fullName))
+
         return None
 
-    def findOrCreateDevices(self, fullname, message):
-        devices = []
+    def translateValue(self, attr, value):
+        if attr in ['POWER', 'POWER1', 'POWER2', 'POWER3']:
+            if value == "ON":
+                return 1, "On"
+            elif value == "OFF":
+                return 0, "Off"
+        return None, None
+
+    def updateStateDevices(self, fullname, message):
         idxs = self.findDevices(fullname)
         # deviceName derived from fullname and attribute name like POWER1, POWER2, Heap, LoadAvg, Wifi.RSSI
-        for deviceName, deviceValue in self.getStateDevices(fullname, message):
-            Domoticz.Debug('findOrCreateDevices(): Name: {}, Value: {}'.format(deviceName, deviceValue))
+        for deviceName, deviceAttr, deviceValue in self.getStateDevices(fullname, message):
+            # Domoticz.Debug('findOrCreateDevices(): Name: {}, Attr: {}, Value: {}'.format(deviceName, deviceAttr, deviceValue))
             idx = self.deviceByName(idxs, deviceName)
             if idx == None:
-                idx = self.createDevice(fullname, deviceName)
+                idx = self.createDevice(fullname, deviceAttr, deviceName)
             if idx != None:
-                devices.append(idx, deviceValue)
-        # list of tuples (domoticz.id, value[s]))
-        return devices
+                nValue, sValue = self.translateValue(deviceAttr, deviceValue)
+                if nValue != None and sValue != None and (Devices[idx].nValue != nValue or Devices[idx].sValue != sValue):
+                    Devices[idx].Update(nValue=nValue, sValue=sValue)
     
     def findResultDevice(self, fulltopic, jmsg):
         return []
@@ -228,9 +277,6 @@ class BasePlugin:
     
     def findEnergyDevices(self, fulltopic, jmsg):
         return []
-    
-    def updateDeviceState(self, idx, jmsg):
-        pass
     
     def updateDeviceResult(self, idx, jmsg):
         pass
@@ -291,8 +337,7 @@ class BasePlugin:
             fullname, tail, str(message)))
 
         if tail == 'STATE':
-            for idx, value in self.findOrCreateDevices(fullname, message):
-                self.updateDeviceState(idx, value)
+            self.updateStateDevices(fullname, message)
                     
         elif tail == 'RESULT':
             idx = self.findResultDevice(fulltopic, message)
