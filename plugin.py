@@ -16,8 +16,9 @@
         <param field="Username" label="Username" width="300px"/>
         <param field="Password" label="Password" width="300px" default="" password="true"/>
         
-        <param field="Mode2" label="Prefix2" width="300px" default="stat"/>
-        <param field="Mode3" label="Prefix3" width="300px" default="tele"/>
+        <param field="Mode1" label="Prefix1 (cmnd)" width="300px" default="cmnd"/>
+        <param field="Mode2" label="Prefix2 (stat)" width="300px" default="stat"/>
+        <param field="Mode3" label="Prefix3 (tele)" width="300px" default="tele"/>
         <param field="Mode4" label="Subscriptions" width="300px" default="%prefix%/%topic%|%topic%/%prefix%"/>
 
         <param field="Mode6" label="Logging" width="75px">
@@ -70,6 +71,9 @@ class BasePlugin:
         if errmsg == "":
             try:
                 Domoticz.Heartbeat(10)
+                self.prefix1 = Parameters["Mode1"].strip()
+                if self.prefix1 == "":
+                    self.prefix1 = 'cmnd'
                 self.prefix2 = Parameters["Mode2"].strip()
                 if self.prefix2 == "":
                     self.prefix2 = 'stat'
@@ -104,33 +108,32 @@ class BasePlugin:
     def onCommand(self, Unit, Command, Level, Color):
         # Log all requests from domoticz
         try:
-            Domoticz.Debug("Domoticz Unit " + Unit + ", Command " +
-                           Command + ", Level " + str(Level) + ", Color:" + Color)
-        except:
-            Domoticz.Debug("Domoticz invalid command")
+            Domoticz.Debug("onCommand(): Unit: {}, Command: {}, Level: {}, Color: {}".format(Unit, Command, Level, Color))
+        except Exception as e:
+            Domoticz.Debug("onCommand(): invalid command: {}".format(str(e)))
+            return False
 
         # If not connected to broker, we can't do much...
         if self.mqttClient is None:
-            Domoticz.Debug("not connected: ignoring domoticz command")
+            Domoticz.Debug("onCommand(): ignored, MQTT not connected")
             return False
 
         # Translate domoticz command to tasmota command
         try:
-            device = Devices[Unit]
-            device_id = device.DeviceID.split('-')
-        except Exception as e:
-            Domoticz.Debug(str(e))
+            topic = '{}/{}'.format(Devices[Unit].Options['Topic'], Devices[Unit].Options['Command'])
+        except:
             return False
 
-        # Dummy data for now...
-        mqttpath = "tasmoticz"
-        scmd = "hello world!"
+        msg = self.d2t(Devices[Unit].Options['Command'], Command)
+        if msg is None:
+            Domoticz.Debug("onCommand(): no message")
+            return False
 
         # Send the tasmota command to the broker
         try:
-            self.mqttClient.publish(mqttpath, scmd)
+            self.mqttClient.publish(topic, msg)
         except Exception as e:
-            Domoticz.Debug(str(e))
+            Domoticz.Error("onCommand(): {}".format(str(e)))
             return False
 
         return True
@@ -221,7 +224,7 @@ class BasePlugin:
                 pass
         return None
 
-    def createDevice(self, fullName, deviceAttr, deviceName):
+    def createDevice(self, fullName, cmndName, deviceAttr, deviceName):
         ''' 
         Create domoticz device for deviceName
         DeviceID is hash of fullname
@@ -235,7 +238,7 @@ class BasePlugin:
         
         if deviceAttr in ['POWER', 'POWER1', 'POWER2', 'POWER3']:
             deviceHash = self.deviceId(fullName)
-            Domoticz.Device(Name=deviceName, Unit=idx, TypeName="Switch", Used=1, Options={ 'Name': deviceName }, Description=deviceName, DeviceID=deviceHash).Create()
+            Domoticz.Device(Name=deviceName, Unit=idx, TypeName="Switch", Used=1, Options={ 'Name': deviceName, 'Topic': cmndName, 'Command': deviceAttr }, Description=deviceName, DeviceID=deviceHash).Create()
             if idx in Devices:
                 # Remove hardware/plugin name from device name
                 Devices[idx].Update(nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=deviceName, SuppressTriggers=True)
@@ -245,7 +248,15 @@ class BasePlugin:
 
         return None
 
-    def translateValue(self, attr, value):
+    def d2t(self, attr, value):
+        if attr in ['POWER', 'POWER1', 'POWER2', 'POWER3']:
+            if value == "On":
+                return "on"
+            elif value == "Off":
+                return "off"
+        return None
+
+    def t2d(self, attr, value):
         if attr in ['POWER', 'POWER1', 'POWER2', 'POWER3']:
             if value == "ON":
                 return 1, "On"
@@ -253,16 +264,16 @@ class BasePlugin:
                 return 0, "Off"
         return None, None
 
-    def updateStateDevices(self, fullname, message):
+    def updateStateDevices(self, fullname, cmndname, message):
         idxs = self.findDevices(fullname)
         # deviceName derived from fullname and attribute name like POWER1, POWER2, Heap, LoadAvg, Wifi.RSSI
         for deviceName, deviceAttr, deviceValue in self.getStateDevices(fullname, message):
             # Domoticz.Debug('findOrCreateDevices(): Name: {}, Attr: {}, Value: {}'.format(deviceName, deviceAttr, deviceValue))
             idx = self.deviceByName(idxs, deviceName)
             if idx == None:
-                idx = self.createDevice(fullname, deviceAttr, deviceName)
+                idx = self.createDevice(fullname, cmndname, deviceAttr, deviceName)
             if idx != None:
-                nValue, sValue = self.translateValue(deviceAttr, deviceValue)
+                nValue, sValue = self.t2d(deviceAttr, deviceValue)
                 if nValue != None and sValue != None and (Devices[idx].nValue != nValue or Devices[idx].sValue != sValue):
                     Devices[idx].Update(nValue=nValue, sValue=sValue)
     
@@ -313,6 +324,7 @@ class BasePlugin:
 
         # Identify the subscription that matches our received subtopics
         fulltopic = []
+        cmndtopic = []
         for subscription in self.subscriptions:
             patterns = subscription.split('/')
             for subtopic, pattern in zip(subtopics[:-1], patterns):
@@ -320,9 +332,13 @@ class BasePlugin:
                         (pattern == '%prefix%' and subtopic != self.prefix2 and subtopic != self.prefix3) or
                         (pattern == '%topic%' and subtopic == 'sonoff')):
                     fulltopic = []
+                    cmndtopic = []
                     break
                 if(pattern != '%prefix%'):
                     fulltopic.append(subtopic)
+                    cmndtopic.append(subtopic)
+                else:
+                    cmndtopic.append(self.prefix1)
             if fulltopic != []:
                 break
         
@@ -330,14 +346,15 @@ class BasePlugin:
             return True
 
         fullname = '/'.join(fulltopic)
+        cmndname = '/'.join(cmndtopic)
 
         # fullname should now contain all subtopic parts except for %prefix%es and tail
         # I.e. fullname is uniquely identifying the sensor or button refered by the message
-        Domoticz.Log("onMQTTPublish(): device {}, tail {}, message {}".format(
-            fullname, tail, str(message)))
+        Domoticz.Log("onMQTTPublish(): device: {}, cmnd: {}, tail: {}, message: {}".format(
+            fullname, cmndname, tail, str(message)))
 
         if tail == 'STATE':
-            self.updateStateDevices(fullname, message)
+            self.updateStateDevices(fullname, cmndname, message)
                     
         elif tail == 'RESULT':
             idx = self.findResultDevice(fulltopic, message)
