@@ -15,11 +15,14 @@ except Exception as e:
 
 class Handler:
     def __init__(self, subscriptions, prefix1, prefix2, prefix3, mqttClient):
-        Domoticz.Debug("Tasmota::onStart(cmnd: {}, stat: {}, tele: {})".format(
+        Domoticz.Debug("Handler::__init__(cmnd: {}, stat: {}, tele: {})".format(
             prefix1, prefix2, prefix3))
 
-        self.topics = ['LWT', 'STATE', 'SENSOR', 'ENERGY',
-                       'RESULT', 'STATUS', 'STATUS2', 'STATUS5', 'STATUS8', 'STATUS11']
+        if errmsg != "":
+            Domoticz.Error("Handler::__init__(): Domoticz Python error {}".format(errmsg))
+            
+        self.topics = ['LWT', 'STATE', 'SENSOR', 'ENERGY', 'RESULT',
+                       'STATUS', 'STATUS2', 'STATUS5', 'STATUS8', 'STATUS11']
 
         self.prefix = [None, prefix1, prefix2, prefix3]
         self.subscriptions = subscriptions
@@ -65,8 +68,7 @@ class Handler:
 
     # Process incoming MQTT messages
     def onMQTTPublish(self, topic, message):
-        Domoticz.Debug(
-            "onMQTTPublish(): topic: {}, message: {}".format(topic, str(message)))
+        Domoticz.Debug("onMQTTPublish(): topic: {}".format(topic))
 
         # Check if we handle this topic tail at all
         subtopics = topic.split('/')
