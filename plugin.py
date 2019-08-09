@@ -74,7 +74,7 @@ class Plugin:
                 self.mqttClient = MqttClient(self.mqttserveraddress, self.mqttserverport, "",
                                              self.onMQTTConnected, self.onMQTTDisconnected, self.onMQTTPublish, self.onMQTTSubscribed)
                 self.tasmotaHandler = Handler(Parameters["Mode4"].strip().split('|'), Parameters["Mode1"].strip(
-                ), Parameters["Mode2"].strip(), Parameters["Mode3"].strip(), self.mqttClient)
+                ), Parameters["Mode2"].strip(), Parameters["Mode3"].strip(), self.mqttClient, Devices)
             except Exception as e:
                 Domoticz.Error("Plugin::onStart(): {}".format(str(e)))
                 self.mqttClient = None

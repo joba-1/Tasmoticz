@@ -14,7 +14,7 @@ except Exception as e:
 
 
 class Handler:
-    def __init__(self, subscriptions, prefix1, prefix2, prefix3, mqttClient):
+    def __init__(self, subscriptions, prefix1, prefix2, prefix3, mqttClient, devices):
         Domoticz.Debug("Handler::__init__(cmnd: {}, stat: {}, tele: {})".format(
             prefix1, prefix2, prefix3))
 
@@ -27,6 +27,9 @@ class Handler:
         self.prefix = [None, prefix1, prefix2, prefix3]
         self.subscriptions = subscriptions
         self.mqttClient = mqttClient
+        
+        global Devices
+        Devices = devices
 
     # Translate domoticz command to tasmota mqtt command(s?)
     def onDomoticzCommand(self, Unit, Command, Level, Color):
