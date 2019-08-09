@@ -187,21 +187,21 @@ class BasePlugin:
         deviceHash = self.deviceId(fullName)
         for device in Devices:
             deviceId = Devices[device].DeviceID
-            # Domoticz.Debug('findDevices(): Fullname: {}, Hash: {}, DeviceId: {}'.format(fullName, deviceHash, deviceId))
+            # Domoticz.Debug('findDevices(): fullName: {}, Hash: {}, DeviceId: {}'.format(fullName, deviceHash, deviceId))
             if deviceId == deviceHash:
                 idxs.append(device)
 
-        Domoticz.Debug('findDevices(): Fullname: {}, Idxs {}'.format(
+        Domoticz.Debug('findDevices(): fullName: {}, Idxs {}'.format(
             fullName, repr(idxs)))
         return idxs
 
-    def getStateDevices(self, fullname, message):
+    def getStateDevices(self, message):
         states = []
         baseattrs = ['POWER', 'POWER1', 'POWER2', 'POWER3', 'Heap', 'LoadAvg']
         for attr in baseattrs:
             try:
                 value = message[attr]
-                states.append((fullname+' '+attr, attr, value))
+                states.append((attr, value))
             except:
                 pass
 
@@ -209,7 +209,7 @@ class BasePlugin:
         for attr in wifiattrs:
             try:
                 value = message['Wifi'][attr]
-                states.append((fullname+' '+attr, attr, value))
+                states.append((attr, value))
             except:
                 pass
         return states
@@ -219,19 +219,19 @@ class BasePlugin:
     def deviceId(self, deviceName):
         return '{:08X}'.format(binascii.crc32(deviceName.encode('utf8')) & 0xffffffff)
 
-    def deviceByName(self, idxs, deviceName):
+    def deviceByAttr(self, idxs, attr):
         for idx in idxs:
             try:
-                if Devices[idx].Options['Name'] == deviceName:
+                if Devices[idx].Options['Command'] == attr:
                     return idx
             except:
                 pass
         return None
 
-    def createDevice(self, fullName, cmndName, deviceAttr, deviceName):
+    def createDevice(self, fullName, cmndName, deviceAttr):
         '''
         Create domoticz device for deviceName
-        DeviceID is hash of fullname
+        DeviceID is hash of fullName
         Options dict contains necessary info
         Description contains options as json
         '''
@@ -242,8 +242,8 @@ class BasePlugin:
 
         if deviceAttr in ['POWER', 'POWER1', 'POWER2', 'POWER3']:
             deviceHash = self.deviceId(fullName)
-            options = {'Name': deviceName,
-                       'Topic': cmndName, 'Command': deviceAttr}
+            deviceName = '{} {}'.format(fullName, deviceAttr)
+            options = {'Topic': cmndName, 'Command': deviceAttr}
             Domoticz.Device(Name=deviceName, Unit=idx, TypeName="Switch", Used=1, Options=options,
                             Description=json.dumps(options, indent=2), DeviceID=deviceHash).Create()
             if idx in Devices:
@@ -274,48 +274,43 @@ class BasePlugin:
                 return 0, "Off"
         return None, None
 
-    def updateStateDevices(self, fullname, cmndname, message):
-        idxs = self.findDevices(fullname)
-        # deviceName derived from fullname and attribute name like POWER1, POWER2, Heap, LoadAvg, Wifi.RSSI
-        for deviceName, deviceAttr, deviceValue in self.getStateDevices(fullname, message):
-            # Domoticz.Debug('findOrCreateDevices(): Name: {}, Attr: {}, Value: {}'.format(deviceName, deviceAttr, deviceValue))
-            idx = self.deviceByName(idxs, deviceName)
+    def updateValue(self, idx, attr, value):
+        nValue, sValue = self.t2d(attr, value)
+        if nValue != None and sValue != None and (Devices[idx].nValue != nValue or Devices[idx].sValue != sValue):
+            Domoticz.Debug("updateValue(): Idx:{}, Attr: {}, nValue: {}, sValue: {}".format(
+                idx, attr, nValue, sValue))
+            Devices[idx].Update(nValue=nValue, sValue=sValue)
+
+    def updateStateDevices(self, fullName, cmndName, message):
+        idxs = self.findDevices(fullName)
+        # deviceName derived from fullName and attribute name like POWER1, POWER2, Heap, LoadAvg, Wifi.RSSI
+        for attr, value in self.getStateDevices(message):
+            idx = self.deviceByAttr(idxs, attr)
             if idx == None:
-                idx = self.createDevice(
-                    fullname, cmndname, deviceAttr, deviceName)
+                idx = self.createDevice(fullName, cmndName, attr)
             if idx != None:
-                nValue, sValue = self.t2d(deviceAttr, deviceValue)
-                if nValue != None and sValue != None and (Devices[idx].nValue != nValue or Devices[idx].sValue != sValue):
-                    Devices[idx].Update(nValue=nValue, sValue=sValue)
+                self.updateValue(idx, attr, value)
 
-    def findResultDevice(self, fulltopic, jmsg):
-        return []
+    def updateResultDevice(self, fullName, message):
+        idxs = self.findDevices(fullName)
+        attr, value = next(iter(message.items()))
+        for idx in idxs:
+            if Devices[idx].Options['Command'] == attr:
+                self.updateValue(idx, attr, value)
 
-    def findStatusDevices(self, fulltopic, jmsg):
-        return []
-
-    def findSensorDevices(self, fulltopic, jmsg):
-        return []
-
-    def findEnergyDevices(self, fulltopic, jmsg):
-        return []
-
-    def updateDeviceResult(self, idx, jmsg):
+    def updateStatusDevices(self, fullName, cmndName, message):
         pass
 
-    def updateDeviceStatus(self, idx, jmsg):
+    def updateVersionDevices(self, fullName, cmndName, message):
         pass
 
-    def updateDeviceVersion(self, idx, jmsg):
+    def updateNetDevices(self, fullName, cmndName, message):
         pass
 
-    def updateDeviceNet(self, idx, jmsg):
+    def updateSensorDevices(self, fullName, cmndName, message):
         pass
 
-    def updateDeviceSensor(self, idx, jmsg):
-        pass
-
-    def updateDeviceEnergy(self, idx, jmsg):
+    def updateEnergyDevice(self, fullName, cmndName, message):
         pass
 
     # TODO
@@ -357,41 +352,34 @@ class BasePlugin:
         if not fulltopic:
             return True
 
-        fullname = '/'.join(fulltopic)
-        cmndname = '/'.join(cmndtopic)
+        fullName = '/'.join(fulltopic)
+        cmndName = '/'.join(cmndtopic)
 
-        # fullname should now contain all subtopic parts except for %prefix%es and tail
-        # I.e. fullname is uniquely identifying the sensor or button refered by the message
+        # fullName should now contain all subtopic parts except for %prefix%es and tail
+        # I.e. fullName is uniquely identifying the sensor or button refered by the message
         Domoticz.Log("onMQTTPublish(): device: {}, cmnd: {}, tail: {}, message: {}".format(
-            fullname, cmndname, tail, str(message)))
+            fullName, cmndName, tail, str(message)))
 
         if tail == 'STATE':
-            self.updateStateDevices(fullname, cmndname, message)
+            self.updateStateDevices(fullName, cmndName, message)
 
         elif tail == 'RESULT':
-            idx = self.findResultDevice(fulltopic, message)
-            if idx != None:
-                self.updateDeviceResult(idx, message)
+            self.updateResultDevice(fullName, message)
 
         elif tail == 'STATUS':
-            for idx in self.findStatusDevices(fulltopic, message):
-                self.updateDeviceStatus(idx, message)
+            self.updateStatusDevices(fullName, cmndName, message)
 
         elif tail == 'STATUS2':
-            for idx in self.findDevices(fulltopic):
-                self.updateDeviceVersion(idx, message)
+            self.updateVersionDevices(fullName, cmndName, message)
 
         elif tail == 'STATUS5':
-            for idx in self.findDevices(fulltopic):
-                self.updateDeviceNet(idx, message)
+            self.updateNetDevices(fullName, cmndName, message)
 
         elif tail == 'SENSOR':
-            for idx in self.findSensorDevices(fulltopic, message):
-                self.updateDeviceSensor(idx, message)
+            self.updateSensorDevices(fullName, cmndName, message)
 
         elif tail == 'ENERGY':
-            for idx in self.findEnergyDevices(fulltopic, message):
-                self.updateDeviceEnergy(idx, message)
+            self.updateEnergyDevices(fullName, cmndName, message)
 
         # sensor/switch from tail/message (can be more than one per device)
         # Find device - update value
