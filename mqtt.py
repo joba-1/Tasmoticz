@@ -11,10 +11,10 @@ import json
 try:
     import random
 except:
-    Domoticz.Debug("Your Python environment is incomplete!")
+    Domoticz.Debug("mqtt: Your Python environment is incomplete!")
 
 
-class MqttClientTasmoticz:
+class MqttClient:
     address = ""
     port = ""
     _connection = None
