@@ -108,7 +108,8 @@ class BasePlugin:
     def onCommand(self, Unit, Command, Level, Color):
         # Log all requests from domoticz
         try:
-            Domoticz.Debug("onCommand(): Unit: {}, Command: {}, Level: {}, Color: {}".format(Unit, Command, Level, Color))
+            Domoticz.Debug("onCommand(): Unit: {}, Command: {}, Level: {}, Color: {}".format(
+                Unit, Command, Level, Color))
         except Exception as e:
             Domoticz.Debug("onCommand(): invalid command: {}".format(str(e)))
             return False
@@ -120,7 +121,8 @@ class BasePlugin:
 
         # Translate domoticz command to tasmota command
         try:
-            topic = '{}/{}'.format(Devices[Unit].Options['Topic'], Devices[Unit].Options['Command'])
+            topic = '{}/{}'.format(Devices[Unit].Options['Topic'],
+                                   Devices[Unit].Options['Command'])
         except:
             return False
 
@@ -170,7 +172,8 @@ class BasePlugin:
                 topic = topic.replace('%topic%', '+')
                 subs.append(topic.replace('%prefix%', self.prefix2) + '/+')
                 subs.append(topic.replace('%prefix%', self.prefix3) + '/+')
-            Domoticz.Debug('onMQTTConnected: Subscriptions: {}'.format(repr(subs)))
+            Domoticz.Debug(
+                'onMQTTConnected: Subscriptions: {}'.format(repr(subs)))
             self.mqttClient.subscribe(subs)
 
     def onMQTTDisconnected(self):
@@ -187,10 +190,11 @@ class BasePlugin:
             # Domoticz.Debug('findDevices(): Fullname: {}, Hash: {}, DeviceId: {}'.format(fullName, deviceHash, deviceId))
             if deviceId == deviceHash:
                 idxs.append(device)
-        
-        Domoticz.Debug('findDevices(): Fullname: {}, Idxs {}'.format(fullName, repr(idxs)))
+
+        Domoticz.Debug('findDevices(): Fullname: {}, Idxs {}'.format(
+            fullName, repr(idxs)))
         return idxs
-    
+
     def getStateDevices(self, fullname, message):
         states = []
         baseattrs = ['POWER', 'POWER1', 'POWER2', 'POWER3', 'Heap', 'LoadAvg']
@@ -225,26 +229,32 @@ class BasePlugin:
         return None
 
     def createDevice(self, fullName, cmndName, deviceAttr, deviceName):
-        ''' 
+        '''
         Create domoticz device for deviceName
         DeviceID is hash of fullname
-        Options['Name'] is the devicename (i.e. "fullname attr")
-        Description later will also contain devicename, plugin name and date of creation
+        Options dict contains necessary info
+        Description contains options as json
         '''
 
         for idx in range(1, 512):
             if idx not in Devices:
                 break
-        
+
         if deviceAttr in ['POWER', 'POWER1', 'POWER2', 'POWER3']:
             deviceHash = self.deviceId(fullName)
-            Domoticz.Device(Name=deviceName, Unit=idx, TypeName="Switch", Used=1, Options={ 'Name': deviceName, 'Topic': cmndName, 'Command': deviceAttr }, Description=deviceName, DeviceID=deviceHash).Create()
+            options = {'Name': deviceName,
+                       'Topic': cmndName, 'Command': deviceAttr}
+            Domoticz.Device(Name=deviceName, Unit=idx, TypeName="Switch", Used=1, Options=options,
+                            Description=json.dumps(options, indent=2), DeviceID=deviceHash).Create()
             if idx in Devices:
                 # Remove hardware/plugin name from device name
-                Devices[idx].Update(nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=deviceName, SuppressTriggers=True)
-                Domoticz.Log("Created Device ID: {}, Name: {}, On: {}, Hash: {}".format(idx, deviceName, fullName, deviceHash))
+                Devices[idx].Update(
+                    nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=deviceName, SuppressTriggers=True)
+                Domoticz.Log("Created Device ID: {}, Name: {}, On: {}, Hash: {}".format(
+                    idx, deviceName, fullName, deviceHash))
                 return idx
-            Domoticz.Error("Failed creating Device ID: {}, Name: {}, On: {}".format(idx, deviceName, fullName))
+            Domoticz.Error("Failed creating Device ID: {}, Name: {}, On: {}".format(
+                idx, deviceName, fullName))
 
         return None
 
@@ -271,46 +281,48 @@ class BasePlugin:
             # Domoticz.Debug('findOrCreateDevices(): Name: {}, Attr: {}, Value: {}'.format(deviceName, deviceAttr, deviceValue))
             idx = self.deviceByName(idxs, deviceName)
             if idx == None:
-                idx = self.createDevice(fullname, cmndname, deviceAttr, deviceName)
+                idx = self.createDevice(
+                    fullname, cmndname, deviceAttr, deviceName)
             if idx != None:
                 nValue, sValue = self.t2d(deviceAttr, deviceValue)
                 if nValue != None and sValue != None and (Devices[idx].nValue != nValue or Devices[idx].sValue != sValue):
                     Devices[idx].Update(nValue=nValue, sValue=sValue)
-    
+
     def findResultDevice(self, fulltopic, jmsg):
         return []
-    
+
     def findStatusDevices(self, fulltopic, jmsg):
         return []
-    
+
     def findSensorDevices(self, fulltopic, jmsg):
         return []
-    
+
     def findEnergyDevices(self, fulltopic, jmsg):
         return []
-    
+
     def updateDeviceResult(self, idx, jmsg):
         pass
-    
+
     def updateDeviceStatus(self, idx, jmsg):
         pass
-    
+
     def updateDeviceVersion(self, idx, jmsg):
         pass
-    
+
     def updateDeviceNet(self, idx, jmsg):
         pass
-    
+
     def updateDeviceSensor(self, idx, jmsg):
         pass
-    
+
     def updateDeviceEnergy(self, idx, jmsg):
         pass
-    
+
     # TODO
     def onMQTTPublish(self, topic, message):  # process incoming MQTT statuses
         # Log all requests from mqtt broker
-        Domoticz.Debug("onMQTTPublish(): topic: {}, message: {}".format(topic, str(message)))
+        Domoticz.Debug(
+            "onMQTTPublish(): topic: {}, message: {}".format(topic, str(message)))
 
         # Check if we handle this topic tail at all
         subtopics = topic.split('/')
@@ -341,7 +353,7 @@ class BasePlugin:
                     cmndtopic.append(self.prefix1)
             if fulltopic != []:
                 break
-        
+
         if not fulltopic:
             return True
 
@@ -355,32 +367,32 @@ class BasePlugin:
 
         if tail == 'STATE':
             self.updateStateDevices(fullname, cmndname, message)
-                    
+
         elif tail == 'RESULT':
             idx = self.findResultDevice(fulltopic, message)
             if idx != None:
                 self.updateDeviceResult(idx, message)
-                
+
         elif tail == 'STATUS':
             for idx in self.findStatusDevices(fulltopic, message):
                 self.updateDeviceStatus(idx, message)
-                
+
         elif tail == 'STATUS2':
             for idx in self.findDevices(fulltopic):
                 self.updateDeviceVersion(idx, message)
-                
+
         elif tail == 'STATUS5':
             for idx in self.findDevices(fulltopic):
                 self.updateDeviceNet(idx, message)
-                
+
         elif tail == 'SENSOR':
             for idx in self.findSensorDevices(fulltopic, message):
                 self.updateDeviceSensor(idx, message)
-                
+
         elif tail == 'ENERGY':
             for idx in self.findEnergyDevices(fulltopic, message):
                 self.updateDeviceEnergy(idx, message)
-                
+
         # sensor/switch from tail/message (can be more than one per device)
         # Find device - update value
         # Not found: create device and Request STATUS, STATUS8, STATUS10, STATUS11 for friendly name, sensor, power
