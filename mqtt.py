@@ -76,7 +76,7 @@ class MqttClient:
             self._connection.Send({'Verb': 'PING'})
 
     def publish(self, topic, payload, retain=0):
-        Domoticz.Debug("MqttClient::publish " + topic + " (" + payload + ")")
+        Domoticz.Debug("MqttClient::publish to {}: '{}'".format(topic, payload))
 
         if (self._connection == None or not self.isConnected):
             self._open()
@@ -89,7 +89,7 @@ class MqttClient:
             })
 
     def subscribe(self, topics):
-        Domoticz.Debug("MqttClient::subscribe")
+        Domoticz.Debug("MqttClient::subscribe {}".format(repr(topics)))
         subscriptionlist = []
         for topic in topics:
             subscriptionlist.append({'Topic': topic, 'QoS': 0})
@@ -115,24 +115,20 @@ class MqttClient:
             return
 
         if (Status == 0):
-            Domoticz.Log("Connected to MQTT Server: {}:{}".format(
-                Connection.Address, Connection.Port)
-            )
-            Domoticz.Debug("MQTT CLIENT ID: '" + self.client_id + "'")
+            Domoticz.Log("MqttClient::onConnect: Server: {}:{}".format(
+                Connection.Address, Connection.Port))
+            Domoticz.Debug("MqttClient::onConnect: ID: '" + self.client_id + "'")
             self._connection.Send({'Verb': 'CONNECT', 'ID': self.client_id})
         else:
-            Domoticz.Error("Failed to connect to: {}:{}, Description: {}".format(
-                Connection.Address, Connection.Port, Description)
-            )
+            Domoticz.Error("MqttClient::onConnect: Failed: {}:{}, Description: {}".format(
+                Connection.Address, Connection.Port, Description))
 
     def onDisconnect(self, Connection):
         if (self._connection != Connection):
             return
 
-        Domoticz.Debug("MqttClient::onDisonnect")
-        Domoticz.Error("Disconnected from MQTT Server: {}:{}".format(
-            Connection.Address, Connection.Port)
-        )
+        Domoticz.Error("MqttClient::onDisonnect: Server: {}:{}".format(
+            Connection.Address, Connection.Port))
 
         self.close()
 

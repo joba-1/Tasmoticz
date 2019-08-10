@@ -15,11 +15,11 @@ except Exception as e:
 
 class Handler:
     def __init__(self, subscriptions, prefix1, prefix2, prefix3, mqttClient, devices):
-        Domoticz.Debug("Handler::__init__(cmnd: {}, stat: {}, tele: {})".format(
-            prefix1, prefix2, prefix3))
+        Domoticz.Debug("Handler::__init__(cmnd: {}, stat: {}, tele: {}, subs: {})".format(
+            prefix1, prefix2, prefix3, repr(subscriptions)))
 
         if errmsg != "":
-            Domoticz.Error("Handler::__init__(): Domoticz Python error {}".format(errmsg))
+            Domoticz.Error("Handler::__init__: Domoticz Python error {}".format(errmsg))
             
         self.topics = ['LWT', 'STATE', 'SENSOR', 'ENERGY', 'RESULT',
                        'STATUS', 'STATUS2', 'STATUS5', 'STATUS8', 'STATUS11']
@@ -33,7 +33,7 @@ class Handler:
 
     # Translate domoticz command to tasmota mqtt command(s?)
     def onDomoticzCommand(self, Unit, Command, Level, Color):
-        Domoticz.Debug("Handler::onDomoticzCommand(): Unit: {}, Command: {}, Level: {}, Color: {}".format(
+        Domoticz.Debug("Handler::onDomoticzCommand: Unit: {}, Command: {}, Level: {}, Color: {}".format(
             Unit, Command, Level, Color))
 
         if self.mqttClient is None:
@@ -47,13 +47,13 @@ class Handler:
 
         msg = d2t(Devices[Unit].Options['Command'], Command)
         if msg is None:
-            Domoticz.Debug("Handler::onDomoticzCommand(): no message")
+            Domoticz.Debug("Handler::onDomoticzCommand: no message")
             return False
 
         try:
             self.mqttClient.publish(topic, msg)
         except Exception as e:
-            Domoticz.Error("Handler::onDomoticzCommand(): {}".format(str(e)))
+            Domoticz.Error("Handler::onDomoticzCommand: {}".format(str(e)))
             return False
 
         return True
@@ -66,12 +66,12 @@ class Handler:
             subs.append(topic.replace('%prefix%', self.prefix[2]) + '/+')
             subs.append(topic.replace('%prefix%', self.prefix[3]) + '/+')
         Domoticz.Debug(
-            'Handler::onMQTTConnected(): Subscriptions: {}'.format(repr(subs)))
+            'Handler::onMQTTConnected: Subscriptions: {}'.format(repr(subs)))
         self.mqttClient.subscribe(subs)
 
     # Process incoming MQTT messages
     def onMQTTPublish(self, topic, message):
-        Domoticz.Debug("onMQTTPublish(): topic: {}".format(topic))
+        Domoticz.Debug("Handler::onMQTTPublish: topic: {}".format(topic))
 
         # Check if we handle this topic tail at all
         subtopics = topic.split('/')
@@ -111,7 +111,7 @@ class Handler:
 
         # fullName should now contain all subtopic parts except for %prefix%es and tail
         # I.e. fullName is uniquely identifying the sensor or button refered by the message
-        Domoticz.Log("onMQTTPublish(): device: {}, cmnd: {}, tail: {}, message: {}".format(
+        Domoticz.Log("Handler::onMQTTPublish: device: {}, cmnd: {}, tail: {}, message: {}".format(
             fullName, cmndName, tail, str(message)))
 
         if tail == 'STATE':
@@ -145,7 +145,7 @@ def findDevices(fullName):
         if Devices[device].DeviceID == deviceHash:
             idxs.append(device)
 
-    Domoticz.Debug('findDevices(): fullName: {}, Idxs {}'.format(
+    Domoticz.Debug('tasmota::findDevices: fullName: {}, Idxs {}'.format(
         fullName, repr(idxs)))
     return idxs
 
@@ -229,10 +229,10 @@ def createDevice(fullName, cmndName, deviceAttr):
             # Remove hardware/plugin name from device name
             Devices[idx].Update(
                 nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=deviceName, SuppressTriggers=True)
-            Domoticz.Log("CreateDevice(): ID: {}, Name: {}, On: {}, Hash: {}".format(
+            Domoticz.Log("tasmota::CreateDevice: ID: {}, Name: {}, On: {}, Hash: {}".format(
                 idx, deviceName, fullName, deviceHash))
             return idx
-        Domoticz.Error("CreateDevice(): Failed creating Device ID: {}, Name: {}, On: {}".format(
+        Domoticz.Error("tasmota::CreateDevice: Failed creating Device ID: {}, Name: {}, On: {}".format(
             idx, deviceName, fullName))
 
     return None
@@ -259,7 +259,7 @@ def t2d(attr, value):
 def updateValue(idx, attr, value):
     nValue, sValue = t2d(attr, value)
     if nValue != None and sValue != None and (Devices[idx].nValue != nValue or Devices[idx].sValue != sValue):
-        Domoticz.Debug("updateValue(): Idx:{}, Attr: {}, nValue: {}, sValue: {}".format(
+        Domoticz.Debug("tasmota::updateValue: Idx:{}, Attr: {}, nValue: {}, sValue: {}".format(
             idx, attr, nValue, sValue))
         Devices[idx].Update(nValue=nValue, sValue=sValue)
 
