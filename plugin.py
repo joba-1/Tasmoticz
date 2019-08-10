@@ -75,7 +75,7 @@ class Plugin:
                     Domoticz.Debugging(2+4+8+16+64)
                 if self.debugging == "Debug":
                     Domoticz.Debugging(2)
-                self.debug(False)
+                self.debug(True)
                 Domoticz.Status(
                     "Plugin::onStart: Parameters: {}".format(repr(Parameters)))
                 self.mqttserveraddress = Parameters["Address"].strip()
@@ -109,6 +109,7 @@ class Plugin:
         return self.tasmotaHandler.onDomoticzCommand(Unit, Command, Level, Color)
 
     def onConnect(self, Connection, Status, Description):
+        Debug("Plugin::onConnect")
         if self.mqttClient is not None:
             self.mqttClient.onConnect(Connection, Status, Description)
 
@@ -131,7 +132,7 @@ class Plugin:
                 else:
                     self.mqttClient.ping()
             except Exception as e:
-                Domoticz.Error(str(e))
+                Domoticz.Error("Plugin::onHeartbeat error {}".format(str(e))
 
     # Let tasmotaHandler subscribe its topics
 
