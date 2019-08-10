@@ -127,7 +127,8 @@ class MqttClient:
             return
 
         if (Status == 0):
-            Domoticz.Status("MqttClient::onConnect: MQTT Server: {}:{} as {}".format(
+            # TODO: why is this called every 10 seconds and not just once?
+            Domoticz.Debug("MqttClient::onConnect: MQTT Server: {}:{} as {}".format(
                 Connection.Address, Connection.Port, self.client_id))
         else:
             Domoticz.Error("MqttClient::onConnect: Failed {}:{}, Description: {}".format(
