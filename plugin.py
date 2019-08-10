@@ -132,7 +132,7 @@ class Plugin:
                 else:
                     self.mqttClient.ping()
             except Exception as e:
-                Domoticz.Error("Plugin::onHeartbeat error {}".format(str(e))
+                Domoticz.Error("Plugin::onHeartbeat error {}".format(str(e)))
 
     # Let tasmotaHandler subscribe its topics
 
