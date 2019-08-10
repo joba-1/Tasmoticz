@@ -75,16 +75,17 @@ class Plugin:
                     Domoticz.Debugging(2+4+8+16+64)
                 if self.debugging == "Debug":
                     Domoticz.Debugging(2)
-                self.debug(false)
+                self.debug(False)
                 Domoticz.Status(
                     "Plugin::onStart: Parameters: {}".format(repr(Parameters)))
                 self.mqttserveraddress = Parameters["Address"].strip()
                 self.mqttserverport = Parameters["Port"].strip()
                 self.mqttClient = MqttClient(self.mqttserveraddress, self.mqttserverport, "",
                                              self.onMQTTConnected, self.onMQTTDisconnected, self.onMQTTPublish, self.onMQTTSubscribed)
-                self.mqttClient.debug(false)
+                self.mqttClient.debug(False)
                 self.tasmotaHandler = Handler(Parameters["Mode4"].strip().split('|'), Parameters["Mode1"].strip(
                 ), Parameters["Mode2"].strip(), Parameters["Mode3"].strip(), self.mqttClient, Devices)
+                self.tasmotaHandler.debug(True)
             except Exception as e:
                 Domoticz.Error("Plugin::onStart: init failed: {}".format(str(e)))
                 self.mqttClient = None
