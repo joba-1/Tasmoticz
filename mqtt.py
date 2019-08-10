@@ -127,21 +127,18 @@ class MqttClient:
             return
 
         if (Status == 0):
-            Domoticz.Status("Connected to MQTT Server: {}:{} as {}".format(
-                Connection.Address, Connection.Port, self.client_id)
-            )
+            Domoticz.Status("MqttClient::onConnect: MQTT Server: {}:{} as {}".format(
+                Connection.Address, Connection.Port, self.client_id))
         else:
-            Domoticz.Error("Failed to connect to: {}:{}, Description: {}".format(
-                Connection.Address, Connection.Port, Description)
-            )
+            Domoticz.Error("MqttClient::onConnect: Failed {}:{}, Description: {}".format(
+                Connection.Address, Connection.Port, Description))
 
     def onDisconnect(self, Connection):
         if (self._connection != Connection):
             return
 
-        Domoticz.Error("MqttClient::onDisonnect: Disconnected from: {}:{}".format(
-            Connection.Address, Connection.Port)
-        )
+        Domoticz.Error("MqttClient::onDisconnect: {}:{}".format(
+            Connection.Address, Connection.Port))
 
         self.close()
 
@@ -150,7 +147,7 @@ class MqttClient:
 
     def onHeartbeat(self):
         if self._connection is None or (not self._connection.Connecting() and not self._connection.Connected() or not self.isConnected):
-            Domoticz.Status("MqttClient::Reconnecting")
+            Domoticz.Status("MqttClient::onHeartbeat: Reconnecting")
             self._open()
         else:
             self.ping()

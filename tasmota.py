@@ -82,7 +82,7 @@ class Handler:
 
     # Process incoming MQTT messages
     def onMQTTPublish(self, topic, message):
-        Debug("onMQTTPublish: topic: {}".format(topic))
+        Debug("Handler::onMQTTPublish: topic: {}".format(topic))
 
         # Check if we handle this topic tail at all
         subtopics = topic.split('/')
@@ -122,7 +122,7 @@ class Handler:
 
         # fullName should now contain all subtopic parts except for %prefix%es and tail
         # I.e. fullName is uniquely identifying the sensor or button refered by the message
-        Debug("onMQTTPublish: device: {}, tail: {}, cmnd: {}, message: {}".format(
+        Debug("Handler::onMQTTPublish: device: {}, tail: {}, cmnd: {}, message: {}".format(
             fullName, tail, cmndName, str(message)))
 
         if tail == 'STATE':
@@ -156,7 +156,7 @@ def findDevices(fullName):
         if Devices[device].DeviceID == deviceHash:
             idxs.append(device)
 
-    Debug('findDevices: fullName: {}, Idxs {}'.format(fullName, repr(idxs)))
+    Debug('tasmota::findDevices: fullName: {}, Idxs {}'.format(fullName, repr(idxs)))
     return idxs
 
 
@@ -239,10 +239,10 @@ def createDevice(fullName, cmndName, deviceAttr):
             # Remove hardware/plugin name from device name
             Devices[idx].Update(
                 nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=deviceName, SuppressTriggers=True)
-            Domoticz.Log("CreateDevice: ID: {}, Name: {}, On: {}, Hash: {}".format(
+            Domoticz.Log("tasmota::CreateDevice: ID: {}, Name: {}, On: {}, Hash: {}".format(
                 idx, deviceName, fullName, deviceHash))
             return idx
-        Domoticz.Error("CreateDevice: Failed creating Device ID: {}, Name: {}, On: {}".format(
+        Domoticz.Error("tasmota::CreateDevice: Failed creating Device ID: {}, Name: {}, On: {}".format(
             idx, deviceName, fullName))
 
     return None
@@ -269,7 +269,7 @@ def t2d(attr, value):
 def updateValue(idx, attr, value):
     nValue, sValue = t2d(attr, value)
     if nValue != None and sValue != None and (Devices[idx].nValue != nValue or Devices[idx].sValue != sValue):
-        Debug("updateValue: Idx:{}, Attr: {}, nValue: {}, sValue: {}".format(idx, attr, nValue, sValue))
+        Debug("tasmota::updateValue: Idx:{}, Attr: {}, nValue: {}, sValue: {}".format(idx, attr, nValue, sValue))
         Devices[idx].Update(nValue=nValue, sValue=sValue)
 
 
