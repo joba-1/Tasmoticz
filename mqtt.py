@@ -22,6 +22,19 @@ def Debug(msg):
         Domoticz.Debug(msg)
 
 
+mqttDebug = True
+
+
+def setMqttDebug(flag):
+    global mqttDebug
+    mqttDebug = flag
+
+
+def Debug(msg):
+    if mqttDebug:
+        Domoticz.Debug(msg)
+                
+            
 class MqttClient:
     address = ""
     port = ""
@@ -32,7 +45,7 @@ class MqttClient:
     on_mqtt_message_cb = None
 
     def __init__(self, address, port, client_id, on_mqtt_connected_cb, on_mqtt_disconnected_cb, on_mqtt_message_cb, on_mqtt_subscribed_cb):
-        Domoticz.Debug("MqttClient::__init__")
+        Debug("MqttClient::__init__")
 
         self.address = address
         self.port = port
@@ -127,9 +140,9 @@ class MqttClient:
             return
 
         if (Status == 0):
-            # TODO: why is this called every 10 seconds and not just once?
-            Domoticz.Debug("MqttClient::onConnect: MQTT Server: {}:{} as {}".format(
+            Domoticz.Log("MqttClient::onConnect: MQTT Server: {}:{} as {}".format(
                 Connection.Address, Connection.Port, self.client_id))
+            self._connection.Send({'Verb': 'CONNECT', 'ID': self.client_id})
         else:
             Domoticz.Error("MqttClient::onConnect: Failed {}:{}, Description: {}".format(
                 Connection.Address, Connection.Port, Description))
@@ -148,7 +161,7 @@ class MqttClient:
 
     def onHeartbeat(self):
         if self._connection is None or (not self._connection.Connecting() and not self._connection.Connected() or not self.isConnected):
-            Domoticz.Status("MqttClient::onHeartbeat: Reconnecting")
+            Debug("MqttClient::Reconnecting")
             self._open()
         else:
             self.ping()

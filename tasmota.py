@@ -13,7 +13,12 @@ except Exception as e:
     errmsg += " binascii import error: "+str(e)
 
 
-tasmotaDebug = False
+tasmotaDebug = True
+
+
+def setTasmotaDebug(flag):
+    global tasmotaDebug
+    tasmotaDebug = flag
 
 
 def Debug(msg):
@@ -23,7 +28,7 @@ def Debug(msg):
 
 class Handler:
     def __init__(self, subscriptions, prefix1, prefix2, prefix3, mqttClient, devices):
-        Domoticz.Status("Handler::__init__(cmnd: {}, stat: {}, tele: {}, subs: {})".format(
+        Debug("Handler::__init__(cmnd: {}, stat: {}, tele: {}, subs: {})".format(
             prefix1, prefix2, prefix3, repr(subscriptions)))
 
         if errmsg != "":
@@ -122,8 +127,8 @@ class Handler:
 
         # fullName should now contain all subtopic parts except for %prefix%es and tail
         # I.e. fullName is uniquely identifying the sensor or button refered by the message
-        Debug("Handler::onMQTTPublish: device: {}, tail: {}, cmnd: {}, message: {}".format(
-            fullName, tail, cmndName, str(message)))
+        Domoticz.Log("Handler::onMQTTPublish: device: {}, cmnd: {}, tail: {}, message: {}".format(
+            fullName, cmndName, tail, str(message)))
 
         if tail == 'STATE':
             updateStateDevices(fullName, cmndName, message)

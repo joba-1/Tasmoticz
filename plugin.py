@@ -13,21 +13,21 @@
         <br/>
     </description>
     <params>
-        <param field="Address" label="MQTT broker address" width="300px" required="true" default="localhost"/>
-        <param field="Port" label="Port" width="300px" required="true" default="1883"/>
+        <param field="Address"  label="MQTT broker address" width="300px" required="true" default="localhost"/>
+        <param field="Port"     label="Port" width="300px" required="true" default="1883"/>
         <param field="Username" label="Username" width="300px"/>
         <param field="Password" label="Password" width="300px" default="" password="true"/>
         
         <param field="Mode1" label="Prefix1 (cmnd)" width="300px" default="cmnd"/>
         <param field="Mode2" label="Prefix2 (stat)" width="300px" default="stat"/>
         <param field="Mode3" label="Prefix3 (tele)" width="300px" default="tele"/>
-        <param field="Mode4" label="Subscriptions" width="300px" default="%prefix%/%topic%|%topic%/%prefix%"/>
+        <param field="Mode4" label="Subscriptions"  width="300px" default="%prefix%/%topic%|%topic%/%prefix%"/>
 
         <param field="Mode6" label="Logging" width="75px">
             <options>
                 <option label="Verbose" value="Verbose"/>
-                <option label="Debug" value="Debug"/>
-                <option label="Normal" value="Normal" default="true" />
+                <option label="Debug"   value="Debug"/>
+                <option label="Normal"  value="Normal" default="true" />
             </options>
         </param>
     </params>
@@ -41,23 +41,23 @@ try:
 except Exception as e:
     errmsg += "Domoticz core start error: "+str(e)
 try:
-    from mqtt import MqttClient
+    from mqtt import MqttClient, setMqttDebug
 except Exception as e:
     errmsg += " mqtt::MqttClient import error: "+str(e)
 try:
-    from tasmota import Handler
+    from tasmota import Handler, setTasmotaDebug
 except Exception as e:
     errmsg += " tasmota::Handler import error: "+str(e)
 
 
-pluginDebug = False
+pluginDebug = True
 
 
 def Debug(msg):
     if pluginDebug:
         Domoticz.Debug(msg)
-    
-    
+
+
 class Plugin:
 
     mqttClient = None
@@ -75,19 +75,23 @@ class Plugin:
                     Domoticz.Debugging(2+4+8+16+64)
                 if self.debugging == "Debug":
                     Domoticz.Debugging(2)
-                self.debug(True)
-                Domoticz.Status(
-                    "Plugin::onStart: Parameters: {}".format(repr(Parameters)))
+                
+                global pluginDebug
+                pluginDebug = False
+                setTasmotaDebug(True)
+                setMqttDebug(False)
+                
+                Debug("Plugin::onStart: Parameters: {}".format(repr(Parameters)))
                 self.mqttserveraddress = Parameters["Address"].strip()
                 self.mqttserverport = Parameters["Port"].strip()
                 self.mqttClient = MqttClient(self.mqttserveraddress, self.mqttserverport, "",
                                              self.onMQTTConnected, self.onMQTTDisconnected, self.onMQTTPublish, self.onMQTTSubscribed)
                 self.mqttClient.debug(False)
                 self.tasmotaHandler = Handler(Parameters["Mode4"].strip().split('|'), Parameters["Mode1"].strip(
-                ), Parameters["Mode2"].strip(), Parameters["Mode3"].strip(), self.mqttClient, Devices)
+                    ), Parameters["Mode2"].strip(), Parameters["Mode3"].strip(), self.mqttClient, Devices)
                 self.tasmotaHandler.debug(True)
             except Exception as e:
-                Domoticz.Error("Plugin::onStart: init failed: {}".format(str(e)))
+                Domoticz.Error("Plugin::onStart: {}".format(str(e)))
                 self.mqttClient = None
         else:
             Domoticz.Error(
