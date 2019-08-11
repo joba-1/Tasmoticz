@@ -26,13 +26,10 @@ git clone https://github.com/joba-1/Tasmoticz.git
 2. Restart domoticz
 3. Go to "Hardware" page and add new item with type "Tasmoticz"
 4. Set your MQTT server address and port to plugin settings
-5. Remember to allow new devices discovery in Domoticz settings
 
-Once plugin receives any MQTT message from Tasmota devices it will try to create an appropriate domoticz device.
+Once plugin receives any MQTT status message from Tasmota devices it will try to create an appropriate domoticz device.
 
 ## Plugin update
-
-Warning: if you use this method, Domoticz may duplicate devices after it! Download only plugin.py if you have a lot of Tasmota devices and do not want to risk it!
 
 1. Stop domoticz
 2. Go to plugin folder and pull new version
