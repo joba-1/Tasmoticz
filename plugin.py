@@ -41,13 +41,21 @@ try:
 except Exception as e:
     errmsg += "Domoticz core start error: "+str(e)
 try:
-    from mqtt import MqttClient
+    from mqtt import MqttClient, setMqttDebug
 except Exception as e:
     errmsg += " mqtt::MqttClient import error: "+str(e)
 try:
-    from tasmota import Handler
+    from tasmota import Handler, setTasmotaDebug
 except Exception as e:
     errmsg += " tasmota::Handler import error: "+str(e)
+
+
+pluginDebug = True
+
+
+def Debug(msg):
+    if pluginDebug:
+        Domoticz.Debug(msg)
 
 
 class Plugin:
@@ -67,8 +75,13 @@ class Plugin:
                     Domoticz.Debugging(2+4+8+16+64)
                 if self.debugging == "Debug":
                     Domoticz.Debugging(2)
-                Domoticz.Debug(
-                    "Plugin::onStart: Parameters: {}".format(repr(Parameters)))
+                
+                global pluginDebug
+                pluginDebug = False
+                setTasmotaDebug(True)
+                setMqttDebug(False)
+                
+                Debug("Plugin::onStart: Parameters: {}".format(repr(Parameters)))
                 self.mqttserveraddress = Parameters["Address"].strip()
                 self.mqttserverport = Parameters["Port"].strip()
                 self.mqttClient = MqttClient(self.mqttserveraddress, self.mqttserverport, "",
@@ -84,7 +97,7 @@ class Plugin:
             self.mqttClient = None
 
     def checkDevices(self):
-        Domoticz.Debug("Plugin::checkDevices")
+        Debug("Plugin::checkDevices")
 
     # Let tasmotaHandler react to commands from Domoticz
 
@@ -106,12 +119,12 @@ class Plugin:
             self.mqttClient.onMessage(Connection, Data)
 
     def onHeartbeat(self):
-        Domoticz.Debug("Plugin::onHeartbeat")
+        Debug("Plugin::onHeartbeat")
         if self.mqttClient is not None:
             try:
                 # Reconnect if connection has dropped
                 if (self.mqttClient._connection is None) or (not self.mqttClient.isConnected):
-                    Domoticz.Debug("Plugin::onHeartbeat: Reconnecting")
+                    Debug("Plugin::onHeartbeat: Reconnecting")
                     self.mqttClient._open()
                 else:
                     self.mqttClient.ping()
@@ -125,10 +138,10 @@ class Plugin:
             self.tasmotaHandler.onMQTTConnected()
 
     def onMQTTDisconnected(self):
-        Domoticz.Debug("Plugin::onMQTTDisconnected")
+        Debug("Plugin::onMQTTDisconnected")
 
     def onMQTTSubscribed(self):
-        Domoticz.Debug("Plugin::onMQTTSubscribed")
+        Debug("Plugin::onMQTTSubscribed")
 
     # Let tasmotaHandler process incoming MQTT messages
 

@@ -13,9 +13,22 @@ except Exception as e:
     errmsg += " binascii import error: "+str(e)
 
 
+tasmotaDebug = True
+
+
+def setTasmotaDebug(flag):
+    global tasmotaDebug
+    tasmotaDebug = flag
+
+
+def Debug(msg):
+    if tasmotaDebug:
+        Domoticz.Debug(msg)
+
+
 class Handler:
     def __init__(self, subscriptions, prefix1, prefix2, prefix3, mqttClient, devices):
-        Domoticz.Debug("Handler::__init__(cmnd: {}, stat: {}, tele: {}, subs: {})".format(
+        Debug("Handler::__init__(cmnd: {}, stat: {}, tele: {}, subs: {})".format(
             prefix1, prefix2, prefix3, repr(subscriptions)))
 
         if errmsg != "":
@@ -33,7 +46,7 @@ class Handler:
 
     # Translate domoticz command to tasmota mqtt command(s?)
     def onDomoticzCommand(self, Unit, Command, Level, Color):
-        Domoticz.Debug("Handler::onDomoticzCommand: Unit: {}, Command: {}, Level: {}, Color: {}".format(
+        Debug("Handler::onDomoticzCommand: Unit: {}, Command: {}, Level: {}, Color: {}".format(
             Unit, Command, Level, Color))
 
         if self.mqttClient is None:
@@ -47,7 +60,7 @@ class Handler:
 
         msg = d2t(Devices[Unit].Options['Command'], Command)
         if msg is None:
-            Domoticz.Debug("Handler::onDomoticzCommand: no message")
+            Debug("Handler::onDomoticzCommand: no message")
             return False
 
         try:
@@ -65,13 +78,13 @@ class Handler:
             topic = topic.replace('%topic%', '+')
             subs.append(topic.replace('%prefix%', self.prefix[2]) + '/+')
             subs.append(topic.replace('%prefix%', self.prefix[3]) + '/+')
-        Domoticz.Debug(
+        Debug(
             'Handler::onMQTTConnected: Subscriptions: {}'.format(repr(subs)))
         self.mqttClient.subscribe(subs)
 
     # Process incoming MQTT messages
     def onMQTTPublish(self, topic, message):
-        Domoticz.Debug("Handler::onMQTTPublish: topic: {}".format(topic))
+        Debug("Handler::onMQTTPublish: topic: {}".format(topic))
 
         # Check if we handle this topic tail at all
         subtopics = topic.split('/')
@@ -145,7 +158,7 @@ def findDevices(fullName):
         if Devices[device].DeviceID == deviceHash:
             idxs.append(device)
 
-    Domoticz.Debug('tasmota::findDevices: fullName: {}, Idxs {}'.format(
+    Debug('tasmota::findDevices: fullName: {}, Idxs {}'.format(
         fullName, repr(idxs)))
     return idxs
 
@@ -259,7 +272,7 @@ def t2d(attr, value):
 def updateValue(idx, attr, value):
     nValue, sValue = t2d(attr, value)
     if nValue != None and sValue != None and (Devices[idx].nValue != nValue or Devices[idx].sValue != sValue):
-        Domoticz.Debug("tasmota::updateValue: Idx:{}, Attr: {}, nValue: {}, sValue: {}".format(
+        Debug("tasmota::updateValue: Idx:{}, Attr: {}, nValue: {}, sValue: {}".format(
             idx, attr, nValue, sValue))
         Devices[idx].Update(nValue=nValue, sValue=sValue)
 

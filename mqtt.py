@@ -14,6 +14,19 @@ except:
     Domoticz.Debug("mqtt: Your Python environment is incomplete!")
 
 
+mqttDebug = True
+
+
+def setMqttDebug(flag):
+    global mqttDebug
+    mqttDebug = flag
+
+
+def Debug(msg):
+    if mqttDebug:
+        Domoticz.Debug(msg)
+                
+            
 class MqttClient:
     address = ""
     port = ""
@@ -24,7 +37,7 @@ class MqttClient:
     on_mqtt_message_cb = None
 
     def __init__(self, address, port, client_id, on_mqtt_connected_cb, on_mqtt_disconnected_cb, on_mqtt_message_cb, on_mqtt_subscribed_cb):
-        Domoticz.Debug("MqttClient::__init__")
+        Debug("MqttClient::__init__")
 
         self.address = address
         self.port = port
@@ -37,7 +50,7 @@ class MqttClient:
         self._open()
 
     def __str__(self):
-        Domoticz.Debug("MqttClient::__str__")
+        Debug("MqttClient::__str__")
 
         if (self._connection != None):
             return str(self._connection)
@@ -51,7 +64,7 @@ class MqttClient:
             return 'Domoticz_' + str(int(time.time()))+'_'+'9999'
 
     def _open(self):
-        Domoticz.Debug("MqttClient::open")
+        Debug("MqttClient::open")
 
         if (self._connection != None):
             self.close()
@@ -69,14 +82,14 @@ class MqttClient:
         self._connection.Connect()
 
     def ping(self):
-        Domoticz.Debug("MqttClient::ping")
+        Debug("MqttClient::ping")
         if (self._connection == None or not self.isConnected):
             self._open()
         else:
             self._connection.Send({'Verb': 'PING'})
 
     def publish(self, topic, payload, retain=0):
-        Domoticz.Debug("MqttClient::publish to {}: '{}'".format(topic, payload))
+        Debug("MqttClient::publish to {}: '{}'".format(topic, payload))
 
         if (self._connection == None or not self.isConnected):
             self._open()
@@ -89,7 +102,7 @@ class MqttClient:
             })
 
     def subscribe(self, topics):
-        Domoticz.Debug("MqttClient::subscribe {}".format(repr(topics)))
+        Debug("MqttClient::subscribe {}".format(repr(topics)))
         subscriptionlist = []
         for topic in topics:
             subscriptionlist.append({'Topic': topic, 'QoS': 0})
@@ -101,7 +114,7 @@ class MqttClient:
                 {'Verb': 'SUBSCRIBE', 'Topics': subscriptionlist})
 
     def close(self):
-        Domoticz.Debug("MqttClient::close")
+        Debug("MqttClient::close")
 
         if self._connection != None and self._connection.Connected():
             self._connection.Send({'Verb': 'DISCONNECT'})
@@ -117,7 +130,7 @@ class MqttClient:
         if (Status == 0):
             Domoticz.Log("MqttClient::onConnect: Server: {}:{}".format(
                 Connection.Address, Connection.Port))
-            Domoticz.Debug("MqttClient::onConnect: ID: '" + self.client_id + "'")
+            Debug("MqttClient::onConnect: ID: '" + self.client_id + "'")
             self._connection.Send({'Verb': 'CONNECT', 'ID': self.client_id})
         else:
             Domoticz.Error("MqttClient::onConnect: Failed: {}:{}, Description: {}".format(
@@ -137,7 +150,7 @@ class MqttClient:
 
     def onHeartbeat(self):
         if self._connection is None or (not self._connection.Connecting() and not self._connection.Connected() or not self.isConnected):
-            Domoticz.Debug("MqttClient::Reconnecting")
+            Debug("MqttClient::Reconnecting")
             self._open()
         else:
             self.ping()
