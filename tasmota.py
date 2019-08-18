@@ -33,14 +33,14 @@ class Handler:
 
         if errmsg != "":
             Domoticz.Error("Handler::__init__: Domoticz Python env error {}".format(errmsg))
-            
+
         self.topics = ['LWT', 'STATE', 'SENSOR', 'ENERGY', 'RESULT',
                        'STATUS', 'STATUS2', 'STATUS5', 'STATUS8', 'STATUS11']
 
         self.prefix = [None, prefix1, prefix2, prefix3]
         self.subscriptions = subscriptions
         self.mqttClient = mqttClient
-        
+
         global Devices
         Devices = devices
 
@@ -185,10 +185,61 @@ def getStateDevices(message):
     return states
 
 
+def getSensorDevices(message):
+    states = []
+
+    sensors = {
+        'DHT11': {
+            'Temperature':   { 'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature' },
+            'Humidity':      { 'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Custom' }
+        },
+        'AM2301': {
+            'Temperature':   { 'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature' },
+            'Humidity':      { 'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Custom' }
+        },
+        'ENERGY': {
+            'Name':          'Energie', # set, if different from key
+            'Total':         { 'Name': 'Gesamt',          'Unit': 'kWh',  'DomoType': 'Custom' },
+            'Yesterday':     { 'Name': 'Gestern',         'Unit': 'kWh',  'DomoType': 'Custom' },
+            'Today':         { 'Name': 'Heute',           'Unit': 'kWh',  'DomoType': 'Custom' },
+            'Power':         { 'Name': 'Leistung',        'Unit': 'kW',   'DomoType': 'Usage' },
+            'ApparentPower': { 'Name': 'Scheinleistung',  'Unit': 'kW',   'DomoType': 'Usage' },
+            'ReactivePower': { 'Name': 'Wirkleistung',    'Unit': 'kW',   'DomoType': 'Usage' },
+            'Factor':        { 'Name': 'Leistungsfaktor', 'Unit': 'W/VA', 'DomoType': 'Custom' },
+            'Voltage':       { 'Name': 'Spannung',        'Unit': 'V',    'DomoType': 'Voltage' },
+            'Current':       { 'Name': 'Strom',           'Unit': 'A',    'DomoType': 'Current (Single)' }
+        },
+        'BMP280': {
+            'Temperature':   { 'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature' },
+            'Pressure':      { 'Name': 'Druck',           'Unit': 'hPa',  'DomoType': 'Pressure' }
+        },
+        'BME280': {
+            'Temperature':   { 'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature' },
+            'Pressure':      { 'Name': 'Druck',           'Unit': 'hPa',  'DomoType': 'Pressure' },
+            'Humidity':      { 'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Custom' }
+        }
+    }
+
+    for sensor, values in sensors.items():
+        for type, desc in values.items():
+            try:
+                value = message[sensor][type]
+                try:
+                    desc['Sensor'] = values['Name']
+                except:
+                    desc['Sensor'] = sensor
+                states.append((sensor, type, value, desc))
+            except:
+                pass
+
+    return states
+
+
 def deviceByAttr(idxs, attr):
     for idx in idxs:
         try:
-            if Devices[idx].Options['Command'] == attr:
+            description = json.loads(Devices[idx].Description)
+            if description['Command'] == attr:
                 return idx
         except:
             pass
@@ -237,9 +288,9 @@ def createDevice(fullName, cmndName, deviceAttr):
     if deviceAttr in ['POWER', 'POWER1', 'POWER2', 'POWER3']:
         deviceHash = deviceId(fullName)
         deviceName = '{} {}'.format(fullName, deviceAttr)
-        options = {'Topic': cmndName, 'Command': deviceAttr}
-        Domoticz.Device(Name=deviceName, Unit=idx, TypeName="Switch", Used=1, Options=options,
-                        Description=json.dumps(options, indent=2), DeviceID=deviceHash).Create()
+        description = {'Topic': cmndName, 'Command': deviceAttr}
+        Domoticz.Device(Name=deviceName, Unit=idx, TypeName="Switch", Used=1,
+                        Description=json.dumps(description, indent=2), DeviceID=deviceHash).Create()
         if idx in Devices:
             # Remove hardware/plugin name from device name
             Devices[idx].Update(
@@ -250,6 +301,40 @@ def createDevice(fullName, cmndName, deviceAttr):
         Domoticz.Error("tasmota::CreateDevice: Failed creating Device ID: {}, Name: {}, On: {}".format(
             idx, deviceName, fullName))
 
+    return None
+
+
+def createSensorDevice(fullName, cmndName, deviceAttr, desc):
+    '''
+    Create domoticz sensor device for deviceName
+    DeviceID is hash of fullName
+    Options dict contains necessary info
+    Description contains options as json
+    '''
+
+    for idx in range(1, 512):
+        if idx not in Devices:
+            break
+
+    deviceHash = deviceId(fullName)
+    deviceName = '{} {} {}'.format(fullName, desc['Sensor'], desc['Name'])
+    description = {'Topic': cmndName, 'Command': deviceAttr}
+    if desc['DomoType'] == 'Custom':
+        options = { 'Custom': '1;{}'.format(desc['Unit']) }
+    else:
+        options = None
+    Domoticz.Device(Name=deviceName, Unit=idx, TypeName=desc['DomoType'], Used=1, Options=options,
+                    Description=json.dumps(description, indent=2), DeviceID=deviceHash).Create()
+    if idx in Devices:
+        # Remove hardware/plugin name from device name
+        Devices[idx].Update(
+            nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=deviceName, SuppressTriggers=True)
+        Domoticz.Log("tasmota::createSensorDevice: ID: {}, Name: {}, On: {}, Hash: {}".format(
+            idx, deviceName, fullName, deviceHash))
+        return idx
+
+    Domoticz.Error("tasmota::createSensorDevice: Failed creating Device ID: {}, Name: {}, On: {}".format(
+        idx, deviceName, fullName))
     return None
 
 
@@ -268,7 +353,7 @@ def t2d(attr, value):
             return 1, "On"
         elif value == "OFF":
             return 0, "Off"
-    return None, None
+    return 0, '{}'.format(value)
 
 
 def updateValue(idx, attr, value):
@@ -280,7 +365,6 @@ def updateValue(idx, attr, value):
 
 def updateStateDevices(fullName, cmndName, message):
     idxs = findDevices(fullName)
-    # deviceName derived from fullName and attribute name like POWER1, POWER2, Heap, LoadAvg, Wifi.RSSI
     for attr, value in getStateDevices(message):
         idx = deviceByAttr(idxs, attr)
         if idx == None:
@@ -297,6 +381,18 @@ def updateResultDevice(fullName, message):
             updateValue(idx, attr, value)
 
 
+def updateSensorDevices(fullName, cmndName, message):
+    idxs = findDevices(fullName)
+    #   ENERGY, Voltage, 220 {Name: Spannung, Unit: V}
+    for sensor, type, value, desc in getSensorDevices(message):
+        attr = '{}-{}'.format(sensor, type)
+        idx = deviceByAttr(idxs, attr)
+        if idx == None:
+            idx = createSensorDevice(fullName, cmndName, attr, desc)
+        if idx != None:
+            updateValue(idx, attr, value)
+
+
 def updateStatusDevices(fullName, cmndName, message):
     pass
 
@@ -306,10 +402,6 @@ def updateVersionDevices(fullName, cmndName, message):
 
 
 def updateNetDevices(fullName, cmndName, message):
-    pass
-
-
-def updateSensorDevices(fullName, cmndName, message):
     pass
 
 
