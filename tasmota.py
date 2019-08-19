@@ -390,7 +390,8 @@ def updateResultDevice(fullName, message):
     idxs = findDevices(fullName)
     attr, value = next(iter(message.items()))
     for idx in idxs:
-        if Devices[idx].Options['Command'] == attr:
+        description = json.loads(Devices[idx].Description)
+        if description['Command'] == attr:
             updateValue(idx, attr, value)
 
 
