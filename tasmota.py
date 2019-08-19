@@ -62,12 +62,13 @@ class Handler:
             return False
 
         try:
-            topic = '{}/{}'.format(Devices[Unit].Options['Topic'],
-                                   Devices[Unit].Options['Command'])
+            description = json.loads(Devices[Unit].Description)
+            topic = '{}/{}'.format(description['Topic'],
+                                   description['Command'])
         except:
             return False
 
-        msg = d2t(Devices[Unit].Options['Command'], Command)
+        msg = d2t(description['Command'], Command)
         if msg is None:
             Debug("Handler::onDomoticzCommand: no message")
             return False
