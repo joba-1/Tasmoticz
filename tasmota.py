@@ -16,16 +16,19 @@ except Exception as e:
 tasmotaDebug = True
 
 
+# Decide if tasmota.py debug messages should be displayed if domoticz debug is enabled for this plugin
 def setTasmotaDebug(flag):
     global tasmotaDebug
     tasmotaDebug = flag
 
 
+# Replaces Domoticz.Debug() so tasmota related messages can be turned off from plugin.py
 def Debug(msg):
     if tasmotaDebug:
         Domoticz.Debug(msg)
 
 
+# Handles incoming Tasmota messages from MQTT or Domoticz commands for Tasmota devices
 class Handler:
     def __init__(self, subscriptions, prefix1, prefix2, prefix3, mqttClient, devices):
         Debug("Handler::__init__(cmnd: {}, stat: {}, tele: {}, subs: {})".format(
@@ -34,6 +37,7 @@ class Handler:
         if errmsg != "":
             Domoticz.Error("Handler::__init__: Domoticz Python env error {}".format(errmsg))
 
+        # So far only STATE, SENSOR and RESULT used. Others just for research...
         self.topics = ['LWT', 'STATE', 'SENSOR', 'ENERGY', 'RESULT',
                        'STATUS', 'STATUS2', 'STATUS5', 'STATUS8', 'STATUS11']
 
@@ -41,6 +45,7 @@ class Handler:
         self.subscriptions = subscriptions
         self.mqttClient = mqttClient
 
+        # I don't understand variable (in)visibility
         global Devices
         Devices = devices
 
@@ -148,12 +153,16 @@ class Handler:
         return True
 
 
-# Utility functions
+###########################
+# Tasmota Utility functions
 
+
+# Generate a hash identifying a tasmota device as a whole. Stored as DeviceId in domoticz devices (1:n relation)
 def deviceId(deviceName):
     return '{:08X}'.format(binascii.crc32(deviceName.encode('utf8')) & 0xffffffff)
 
 
+# Collects a list of unit ids of all domoticz devices refering to the same tasmota device 
 def findDevices(fullName):
     idxs = []
     deviceHash = deviceId(fullName)
@@ -165,6 +174,7 @@ def findDevices(fullName):
     return idxs
 
 
+# Collects a list of all supported attribute key/value pairs from tasmota tele STATE messages
 def getStateDevices(message):
     states = []
     baseattrs = ['POWER', 'POWER1', 'POWER2', 'POWER3', 'Heap', 'LoadAvg']
@@ -185,6 +195,12 @@ def getStateDevices(message):
     return states
 
 
+# Collects a list of all supported attribute sensor/type/value tuples from tasmota tele SENSOR messages
+# * One sensor can contain several types (e.g. DHT11 has Temperature and Humidity)
+# * Additional desc contains info needed to create a matching domoticz device
+#  * Name is used for display / translation
+#  * Unit is only relevant for DomoType Custom (AFAIK other types have fixed units in domoticz)
+# * If a sensor name needs translation for display, this is done with its Name entry
 def getSensorDevices(message):
     states = []
 
@@ -204,7 +220,7 @@ def getSensorDevices(message):
             'Today':         { 'Name': 'Heute',           'Unit': 'kWh',  'DomoType': 'Custom' },
             'Power':         { 'Name': 'Leistung',        'Unit': 'kW',   'DomoType': 'Usage' },
             'ApparentPower': { 'Name': 'Scheinleistung',  'Unit': 'kW',   'DomoType': 'Usage' },
-            'ReactivePower': { 'Name': 'Wirkleistung',    'Unit': 'kW',   'DomoType': 'Usage' },
+            'ReactivePower': { 'Name': 'Blindleistung',   'Unit': 'kW',   'DomoType': 'Usage' },
             'Factor':        { 'Name': 'Leistungsfaktor', 'Unit': 'W/VA', 'DomoType': 'Custom' },
             'Voltage':       { 'Name': 'Spannung',        'Unit': 'V',    'DomoType': 'Voltage' },
             'Current':       { 'Name': 'Strom',           'Unit': 'A',    'DomoType': 'Current (Single)' }
@@ -235,6 +251,7 @@ def getSensorDevices(message):
     return states
 
 
+# Find the domoticz device unit id matching a STATE or SENSOR attribute coming from tasmota
 def deviceByAttr(idxs, attr):
     for idx in idxs:
         try:
@@ -245,10 +262,9 @@ def deviceByAttr(idxs, attr):
             pass
     return None
 
-# sensor/switch from tail/message (can be more than one per device)
-# Find device - update value
-# Not found: create device and Request STATUS, STATUS8, STATUS10, STATUS11 for friendly name, sensor, power
 
+# Some domoticz device Create(), Update() and query value examples
+#
 #  Domoticz.Device(Name=unitname, Unit=iUnit,TypeName="Switch",Used=1,DeviceID=unitname).Create()
 #  Domoticz.Device(Name=unitname, Unit=iUnit,Type=243,Subtype=29,Used=1,DeviceID=unitname).Create()
 #  Domoticz.Device(Name=unitname, Unit=iUnit,Type=244, Subtype=62, Switchtype=13,Used=1,DeviceID=unitname).Create() # create Blinds Percentage
@@ -256,12 +272,6 @@ def deviceByAttr(idxs, attr):
 #  Domoticz.Device(Name=unitname+" BUTTON", Unit=iUnit,TypeName="Switch",Used=0,DeviceID=unitname).Create()
 #  Domoticz.Device(Name=unitname+" LONGPUSH", Unit=iUnit,TypeName="Switch",Used=0,DeviceID=unitname).Create()
 #  Domoticz.Device(Name=unitname, Unit=iUnit, TypeName="Temp+Hum",Used=1,DeviceID=unitname).Create() # create Temp+Hum Type=82
-#  for x in range(1, 256):
-#      if x not in Devices:
-#          iUnit=x
-#          break
-#  if iUnit==0:
-#      iUnit=len(Devices)+1
 #
 #  Devices[iUnit].Update(nValue=1, sValue="On")
 #  Devices[iUnit].Update(nValue=0, sValue=str(curval), BatteryLevel=int(mval))
@@ -269,16 +279,14 @@ def deviceByAttr(idxs, attr):
 #  curval = Devices[iUnit].sValue
 #  Domoticz.Device(Name=unitname, Unit=iUnit,Type=241, Subtype=3, Switchtype=7, Used=1,DeviceID=unitname).Create() # create Color White device
 #  Domoticz.Device(Name=unitname, Unit=iUnit,Type=241, Subtype=6, Switchtype=7, Used=1,DeviceID=unitname).Create() # create RGBZW device
-#  jmsg = json.loads(tmsg)
-#  if jmsg["turn"]=="on" or jmsg["turn"]=="1" or jmsg["turn"]==True:
 
 
-def createDevice(fullName, cmndName, deviceAttr):
+# Create a domoticz device from infos extracted out of tasmota STATE tele messages
+def createStateDevice(fullName, cmndName, deviceAttr):
     '''
     Create domoticz device for deviceName
     DeviceID is hash of fullName
-    Options dict contains necessary info
-    Description contains options as json
+    Description contains necessary info as json (previously used Options, but got overwritten for Custom devices)
     '''
 
     for idx in range(1, 512):
@@ -292,24 +300,24 @@ def createDevice(fullName, cmndName, deviceAttr):
         Domoticz.Device(Name=deviceName, Unit=idx, TypeName="Switch", Used=1,
                         Description=json.dumps(description, indent=2), DeviceID=deviceHash).Create()
         if idx in Devices:
-            # Remove hardware/plugin name from device name
+            # Remove hardware/plugin name from domoticz device name
             Devices[idx].Update(
                 nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=deviceName, SuppressTriggers=True)
-            Domoticz.Log("tasmota::CreateDevice: ID: {}, Name: {}, On: {}, Hash: {}".format(
+            Domoticz.Log("tasmota::createStateDevice: ID: {}, Name: {}, On: {}, Hash: {}".format(
                 idx, deviceName, fullName, deviceHash))
             return idx
-        Domoticz.Error("tasmota::CreateDevice: Failed creating Device ID: {}, Name: {}, On: {}".format(
+        Domoticz.Error("tasmota::createStateDevice: Failed creating Device ID: {}, Name: {}, On: {}".format(
             idx, deviceName, fullName))
 
     return None
 
 
+# Create a domoticz device from infos extracted out of tasmota SENSOR tele messages
 def createSensorDevice(fullName, cmndName, deviceAttr, desc):
     '''
     Create domoticz sensor device for deviceName
     DeviceID is hash of fullName
-    Options dict contains necessary info
-    Description contains options as json
+    Description contains necessary info as json (previously used Options, but got overwritten for Custom devices)
     '''
 
     for idx in range(1, 512):
@@ -326,7 +334,7 @@ def createSensorDevice(fullName, cmndName, deviceAttr, desc):
     Domoticz.Device(Name=deviceName, Unit=idx, TypeName=desc['DomoType'], Used=1, Options=options,
                     Description=json.dumps(description, indent=2), DeviceID=deviceHash).Create()
     if idx in Devices:
-        # Remove hardware/plugin name from device name
+        # Remove hardware/plugin name from domoticz device name
         Devices[idx].Update(
             nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=deviceName, SuppressTriggers=True)
         Domoticz.Log("tasmota::createSensorDevice: ID: {}, Name: {}, On: {}, Hash: {}".format(
@@ -338,6 +346,7 @@ def createSensorDevice(fullName, cmndName, deviceAttr, desc):
     return None
 
 
+# Translate device value received form domoticz to tasmota attribute/value
 def d2t(attr, value):
     if attr in ['POWER', 'POWER1', 'POWER2', 'POWER3']:
         if value == "On":
@@ -347,15 +356,17 @@ def d2t(attr, value):
     return None
 
 
+# Translate values of a tasmota attribute to matching domoticz device value
 def t2d(attr, value):
     if attr in ['POWER', 'POWER1', 'POWER2', 'POWER3']:
         if value == "ON":
             return 1, "On"
         elif value == "OFF":
             return 0, "Off"
-    return 0, '{}'.format(value)
+    return 0, str(value)
 
 
+# Update a tasmota attributes value in its associated domoticz device idx
 def updateValue(idx, attr, value):
     nValue, sValue = t2d(attr, value)
     if nValue != None and sValue != None and (Devices[idx].nValue != nValue or Devices[idx].sValue != sValue):
@@ -363,16 +374,18 @@ def updateValue(idx, attr, value):
         Devices[idx].Update(nValue=nValue, sValue=sValue)
 
 
+# Update domoticz device values related to tasmota STATE message, create device if it does not exist yet
 def updateStateDevices(fullName, cmndName, message):
     idxs = findDevices(fullName)
     for attr, value in getStateDevices(message):
         idx = deviceByAttr(idxs, attr)
         if idx == None:
-            idx = createDevice(fullName, cmndName, attr)
+            idx = createStateDevice(fullName, cmndName, attr)
         if idx != None:
             updateValue(idx, attr, value)
 
 
+# Update domoticz device related to tasmota RESULT message (e.g. on power on/off)
 def updateResultDevice(fullName, message):
     idxs = findDevices(fullName)
     attr, value = next(iter(message.items()))
@@ -381,6 +394,7 @@ def updateResultDevice(fullName, message):
             updateValue(idx, attr, value)
 
 
+# Update domoticz device values related to tasmota SENSOR message, create device if it does not exist yet
 def updateSensorDevices(fullName, cmndName, message):
     idxs = findDevices(fullName)
     #   ENERGY, Voltage, 220 {Name: Spannung, Unit: V}
@@ -393,17 +407,29 @@ def updateSensorDevices(fullName, cmndName, message):
             updateValue(idx, attr, value)
 
 
+# TODO
+# Extract friendly name of tasmota device from STATUS message and use as domoticz device name
+# Change device name to use friendly name instead of topic if description did not contain friendly name yet
+# Update description with new friendly name if changed
+# STATUS message to be triggered on device creation in create???Device().
+#  Or in addition on update???Devices(), if description does not contain friendly name yet?
 def updateStatusDevices(fullName, cmndName, message):
     pass
 
 
+# TODO
+# Add or update tasmota version info in domoticz device description if it changed
 def updateVersionDevices(fullName, cmndName, message):
     pass
 
 
+# TODO
+# Add or update tasmota network info in domoticz device description if it changed
 def updateNetDevices(fullName, cmndName, message):
     pass
 
 
+# TODO
+# Handle tasmota ENERGY tele messages similar to SENSOR tele messages (still needed?)
 def updateEnergyDevices(fullName, cmndName, message):
     pass

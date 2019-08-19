@@ -14,14 +14,6 @@ except:
     Domoticz.Log("mqtt: Your Python environment is incomplete!")
 
 
-mqttDebug = False
-
-
-def Debug(msg):
-    if mqttDebug:
-        Domoticz.Debug(msg)
-
-
 mqttDebug = True
 
 
