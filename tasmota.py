@@ -38,9 +38,9 @@ class Handler:
             Domoticz.Error(
                 "Handler::__init__: Domoticz Python env error {}".format(errmsg))
 
-        # So far only STATE, SENSOR and RESULT used. Others just for research...
-        self.topics = ['LWT', 'STATE', 'SENSOR', 'ENERGY', 'RESULT',
-                       'STATUS', 'STATUS2', 'STATUS5', 'STATUS8', 'STATUS11']
+        # So far only STATUS, STATE, SENSOR and RESULT are used. Others just for research...
+        self.topics = ['INFO1', 'STATE', 'SENSOR', 'RESULT', 'STATUS',
+                       'STATUS2', 'STATUS5', 'STATUS8', 'STATUS11', 'ENERGY']
 
         self.prefix = [None, prefix1, prefix2, prefix3]
         self.subscriptions = subscriptions
@@ -134,25 +134,39 @@ class Handler:
 
         # fullName should now contain all subtopic parts except for %prefix%es and tail
         # I.e. fullName is uniquely identifying the sensor or button refered by the message
-        Domoticz.Log("Handler::onMQTTPublish: device: {}, cmnd: {}, tail: {}, message: {}".format(
+        Debug("Handler::onMQTTPublish: device: {}, cmnd: {}, tail: {}, message: {}".format(
             fullName, cmndName, tail, str(message)))
 
         if tail == 'STATE':
-            updateStateDevices(fullName, cmndName, message)
+            if updateStateDevices(fullName, cmndName, message):
+                self.requestStatus(cmndName)
+        elif tail == 'SENSOR':
+            if updateSensorDevices(fullName, cmndName, message):
+                self.requestStatus(cmndName)
         elif tail == 'RESULT':
             updateResultDevice(fullName, message)
         elif tail == 'STATUS':
             updateStatusDevices(fullName, cmndName, message)
+        if tail == 'INFO1':
+            updateInfo1Devices(fullName, cmndName, message)
+            self.requestStatus(cmndName)
         elif tail == 'STATUS2':
             updateVersionDevices(fullName, cmndName, message)
         elif tail == 'STATUS5':
             updateNetDevices(fullName, cmndName, message)
-        elif tail == 'SENSOR':
-            updateSensorDevices(fullName, cmndName, message)
         elif tail == 'ENERGY':
             updateEnergyDevices(fullName, cmndName, message)
 
         return True
+
+    # Request device STATUS via mqtt
+    def requestStatus(self, cmdName):
+        Debug("Handler::requestStatus: {}".format(cmdName))
+        try:
+            topic = '{}/{}'.format(cmdName, "STATUS")
+            self.mqttClient.publish(topic, "")
+        except Exception as e:
+            Domoticz.Error("Handler::requestStatus: {}".format(str(e)))
 
 
 ###########################
@@ -301,9 +315,13 @@ def createStateDevice(fullName, cmndName, deviceAttr):
     if deviceAttr in ['POWER', 'POWER1', 'POWER2', 'POWER3']:
         deviceHash = deviceId(fullName)
         deviceName = '{} {}'.format(fullName, deviceAttr)
-        description = {'Topic': cmndName, 'Command': deviceAttr}
+        description = {'Topic': cmndName, 'Command': deviceAttr, 'Device': 'Schalter'}
+        if deviceAttr == 'POWER':
+            description["Type"] = ""
+        else:
+            description["Type"] = deviceAttr[-1]
         Domoticz.Device(Name=deviceName, Unit=idx, TypeName="Switch", Used=1,
-                        Description=json.dumps(description, indent=2), DeviceID=deviceHash).Create()
+                        Description=json.dumps(description, indent=2, ensure_ascii=False), DeviceID=deviceHash).Create()
         if idx in Devices:
             # Remove hardware/plugin name from domoticz device name
             Devices[idx].Update(
@@ -331,13 +349,14 @@ def createSensorDevice(fullName, cmndName, deviceAttr, desc):
 
     deviceHash = deviceId(fullName)
     deviceName = '{} {} {}'.format(fullName, desc['Sensor'], desc['Name'])
-    description = {'Topic': cmndName, 'Command': deviceAttr}
+    description = {'Topic': cmndName, 'Command': deviceAttr,
+                   'Device': desc['Sensor'], 'Type': desc['Name']}
     if desc['DomoType'] == 'Custom':
         options = {'Custom': '1;{}'.format(desc['Unit'])}
     else:
         options = None
     Domoticz.Device(Name=deviceName, Unit=idx, TypeName=desc['DomoType'], Used=1, Options=options,
-                    Description=json.dumps(description, indent=2), DeviceID=deviceHash).Create()
+                    Description=json.dumps(description, indent=2, ensure_ascii=False), DeviceID=deviceHash).Create()
     if idx in Devices:
         # Remove hardware/plugin name from domoticz device name
         Devices[idx].Update(
@@ -388,14 +407,19 @@ def updateValue(idx, attr, value):
 
 
 # Update domoticz device values related to tasmota STATE message, create device if it does not exist yet
+# Returns true if a new device was created
 def updateStateDevices(fullName, cmndName, message):
+    ret = False
     idxs = findDevices(fullName)
     for attr, value in getStateDevices(message):
         idx = deviceByAttr(idxs, attr)
         if idx == None:
             idx = createStateDevice(fullName, cmndName, attr)
+            if idx != None:
+                ret = True
         if idx != None:
             updateValue(idx, attr, value)
+    return ret
 
 
 # Update domoticz device related to tasmota RESULT message (e.g. on power on/off)
@@ -409,7 +433,9 @@ def updateResultDevice(fullName, message):
 
 
 # Update domoticz device values related to tasmota SENSOR message, create device if it does not exist yet
+# Returns true if a new device was created
 def updateSensorDevices(fullName, cmndName, message):
+    ret = False
     idxs = findDevices(fullName)
     #   ENERGY, Voltage, 220 {Name: Spannung, Unit: V}
     for sensor, type, value, desc in getSensorDevices(message):
@@ -417,18 +443,67 @@ def updateSensorDevices(fullName, cmndName, message):
         idx = deviceByAttr(idxs, attr)
         if idx == None:
             idx = createSensorDevice(fullName, cmndName, attr, desc)
+            if idx != None:
+                ret = True
         if idx != None:
             updateValue(idx, attr, value)
+    return ret
 
 
-# TODO
-# Extract friendly name of tasmota device from STATUS message and use as domoticz device name
-# Change device name to use friendly name instead of topic if description did not contain friendly name yet
-# Update description with new friendly name if changed
-# STATUS message to be triggered on device creation in create???Device().
-#  Or in addition on update???Devices(), if description does not contain friendly name yet?
+# Update domoticz device values related to tasmota INFO1 message: Version and Module
+def updateInfo1Devices(fullName, cmndName, message):
+    try:
+        module = message["Module"]
+        version = message["Version"]
+        for idx in findDevices(fullName):
+            description = json.loads(Devices[idx].Description)
+            dirty = False
+            if "Module" not in description or module != description["Module"]:
+                Domoticz.Log("tasmota::updateInfo1Devices: idx: {}, name: {}, module: {}".format(
+                    idx, Devices[idx].Name, module))
+                description["Module"] = module
+                dirty = True
+            if "Version" not in description or version != description["Version"]:
+                Domoticz.Log("tasmota::updateInfo1Devices: idx: {}, name: {}, version: {}".format(
+                    idx, Devices[idx].Name, version))
+                description["Version"] = version
+                dirty = True
+            if dirty:
+                Devices[idx].Update(nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, 
+                    Description=json.dumps(description, indent=2, ensure_ascii=False), SuppressTriggers=True)
+    except Exception as e:
+        Domoticz.Error("tasmota::updateInfo1Devices: Set module and version failed: {}".format(str(e)))
+
+
+# Update domoticz device names from friendly names of tasmota STATUS message
 def updateStatusDevices(fullName, cmndName, message):
-    pass
+    try:
+        names = message["Status"]["FriendlyName"]
+        for idx in findDevices(fullName):
+            description = json.loads(Devices[idx].Description)
+            command = description["Command"]
+            nonames = ['Sonoff', '', None]
+            name = None
+            if command == "POWER2" and len(names) > 1 and names[1] not in nonames:
+                name = names[1]
+            elif command == "POWER3" and len(names) > 2 and names[2] not in nonames:
+                name = names[2]
+            elif names[0] not in nonames:
+                name = names[0]
+            if command != 'POWER':
+                name += ' ' + description["Type"]
+            if name != None and Devices[idx].Name != name and ('Name' not in description or Devices[idx].Name == description["Name"]):
+                Domoticz.Log("tasmota::updateStatusDevices: idx: {}, from: {}, to: {}".format(
+                    idx, Devices[idx].Name, name))
+                description["Name"] = name
+                Devices[idx].Update(
+                    nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=name, 
+                    Description=json.dumps(description, indent=2, ensure_ascii=False), SuppressTriggers=True)
+            else:
+                Debug("tasmota::updateStatusDevices: idx: {}, rename: {}, skipped: {}".format(
+                    idx, Devices[idx].Name, repr(names)))
+    except Exception as e:
+        Domoticz.Error("tasmota::updateStatusDevices: Set friendly name failed: {}".format(str(e)))
 
 
 # TODO
