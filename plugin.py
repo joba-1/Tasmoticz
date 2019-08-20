@@ -2,14 +2,14 @@
 <plugin 
     key="Tasmoticz" 
     name="Autodiscovery of Tasmota Devices"
-    version="1.0.1"
+    version="1.1.1"
     author="Joachim Banzhaf" 
     externallink="https://github.com/joba-1/Tasmoticz">
    
     <description>
         Plugin to discover and operate Tasmota devices through MQTT
         <br/>
-        so far only switches are implemented
+        so far only simple switches and some sensors are implemented
         <br/>
     </description>
     <params>

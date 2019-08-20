@@ -246,11 +246,11 @@ def getSensorDevices(message):
         },
         'BMP280': {
             'Temperature':   {'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature'},
-            'Pressure':      {'Name': 'Druck',           'Unit': 'hPa',  'DomoType': 'Barometer'}
+            'Pressure':      {'Name': 'Luftdruck',       'Unit': 'hPa',  'DomoType': 'Barometer'}
         },
         'BME280': {
             'Temperature':   {'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature'},
-            'Pressure':      {'Name': 'Druck',           'Unit': 'hPa',  'DomoType': 'Barometer'},
+            'Pressure':      {'Name': 'Luftdruck',       'Unit': 'hPa',  'DomoType': 'Barometer'},
             'Humidity':      {'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Humidity'}
         }
     }
@@ -507,12 +507,6 @@ def updateStatusDevices(fullName, cmndName, message):
 
 
 # TODO
-# Add or update tasmota version info in domoticz device description if it changed
-def updateVersionDevices(fullName, cmndName, message):
-    pass
-
-
-# TODO
 # Add or update tasmota network info in domoticz device description if it changed
 def updateNetDevices(fullName, cmndName, message):
     pass
@@ -522,3 +516,13 @@ def updateNetDevices(fullName, cmndName, message):
 # Handle tasmota ENERGY tele messages similar to SENSOR tele messages (still needed?)
 def updateEnergyDevices(fullName, cmndName, message):
     pass
+
+# TODO
+# more sensors
+# other types of switches (interlock, inching, shutters...)
+# dimmers
+# color control
+# UI translations
+# send RSSI on updates, RSSI as sensor value
+# combined tasmota sensor values (temp/humi/baro, ...)
+# respect units configured in tasmota (°C vs F, ...) 
