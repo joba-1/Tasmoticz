@@ -1,6 +1,6 @@
 # Tasmoticz - Domoticz Plugin for Tasmota
 
-Python plugin for autodetecting devices with Tasmota firmware in Domoticz 
+Python plugin for autodetecting devices with Tasmota firmware in Domoticz
 
 MQTT parts heavily based on Shelly_MQTT by enesbcs who was very helpful in making my Shelly 2.5 driven shutters work and inspired me for this.
 Big thanks!
@@ -41,9 +41,11 @@ git pull
 
 ## Supported devices
 
+- Relays and Switches of Tasmota devices
+- Sensors in Tasmota devices for sensors I use
+
 Planned to work with:
- - Relays and Switches of Tasmota devices
- - Sensors in Tasmota devices for sensors I use or YOU send pull requests
+ - Sensors in Tasmota devices for sensors YOU send pull requests
  - RGBW strips attached to Tasmota devices
  - Shutters operated by Tasmota devices once I have one or YOU send pull requests
 
@@ -53,7 +55,7 @@ Planned to work with:
     * I'll close it if I think I can't help
     * You close it if the issue is solved for you
 * Open a pull request if you think you fixed a bug or implemented a new feature or need help with that
-    * Fork my github repository 
+    * Fork my github repository
     * Clone your fork
     * Implement the fix in your clone (don't change anything else)
     * Push your changes to your fork

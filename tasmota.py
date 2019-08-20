@@ -208,11 +208,11 @@ def getSensorDevices(message):
     sensors = {
         'DHT11': {
             'Temperature':   { 'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature' },
-            'Humidity':      { 'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Custom' }
+            'Humidity':      { 'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Humidity' }
         },
         'AM2301': {
             'Temperature':   { 'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature' },
-            'Humidity':      { 'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Custom' }
+            'Humidity':      { 'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Humidity' }
         },
         'ENERGY': {
             'Name':          'Energie', # set, if different from key
@@ -226,14 +226,17 @@ def getSensorDevices(message):
             'Voltage':       { 'Name': 'Spannung',        'Unit': 'V',    'DomoType': 'Voltage' },
             'Current':       { 'Name': 'Strom',           'Unit': 'A',    'DomoType': 'Current (Single)' }
         },
+        'TSL2561': {
+            'Illuminance':   { 'Name': 'Helligkeit',      'Unit': 'lux',  'DomoType': 'Illumination' }
+        },
         'BMP280': {
             'Temperature':   { 'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature' },
-            'Pressure':      { 'Name': 'Druck',           'Unit': 'hPa',  'DomoType': 'Pressure' }
+            'Pressure':      { 'Name': 'Druck',           'Unit': 'hPa',  'DomoType': 'Barometer' }
         },
         'BME280': {
             'Temperature':   { 'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature' },
-            'Pressure':      { 'Name': 'Druck',           'Unit': 'hPa',  'DomoType': 'Pressure' },
-            'Humidity':      { 'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Custom' }
+            'Pressure':      { 'Name': 'Druck',           'Unit': 'hPa',  'DomoType': 'Barometer' },
+            'Humidity':      { 'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Humidity' }
         }
     }
 
@@ -370,9 +373,13 @@ def t2d(attr, value):
 # Update a tasmota attributes value in its associated domoticz device idx
 def updateValue(idx, attr, value):
     nValue, sValue = t2d(attr, value)
-    if nValue != None and sValue != None and (Devices[idx].nValue != nValue or Devices[idx].sValue != sValue):
-        Debug("tasmota::updateValue: Idx:{}, Attr: {}, nValue: {}, sValue: {}".format(idx, attr, nValue, sValue))
-        Devices[idx].Update(nValue=nValue, sValue=sValue)
+    if nValue != None and sValue != None:
+        if Devices[idx].Type == 81:
+            # Humidity only accepted as integer
+            nValue = int(round(float(sValue)))
+        if Devices[idx].nValue != nValue or Devices[idx].sValue != sValue:
+            Debug("tasmota::updateValue: Idx:{}, Attr: {}, nValue: {}, sValue: {}".format(idx, attr, nValue, sValue))
+            Devices[idx].Update(nValue=nValue, sValue=sValue)
 
 
 # Update domoticz device values related to tasmota STATE message, create device if it does not exist yet
