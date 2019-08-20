@@ -35,7 +35,8 @@ class Handler:
             prefix1, prefix2, prefix3, repr(subscriptions)))
 
         if errmsg != "":
-            Domoticz.Error("Handler::__init__: Domoticz Python env error {}".format(errmsg))
+            Domoticz.Error(
+                "Handler::__init__: Domoticz Python env error {}".format(errmsg))
 
         # So far only STATE, SENSOR and RESULT used. Others just for research...
         self.topics = ['LWT', 'STATE', 'SENSOR', 'ENERGY', 'RESULT',
@@ -163,7 +164,7 @@ def deviceId(deviceName):
     return '{:08X}'.format(binascii.crc32(deviceName.encode('utf8')) & 0xffffffff)
 
 
-# Collects a list of unit ids of all domoticz devices refering to the same tasmota device 
+# Collects a list of unit ids of all domoticz devices refering to the same tasmota device
 def findDevices(fullName):
     idxs = []
     deviceHash = deviceId(fullName)
@@ -207,36 +208,36 @@ def getSensorDevices(message):
 
     sensors = {
         'DHT11': {
-            'Temperature':   { 'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature' },
-            'Humidity':      { 'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Humidity' }
+            'Temperature':   {'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature'},
+            'Humidity':      {'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Humidity'}
         },
         'AM2301': {
-            'Temperature':   { 'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature' },
-            'Humidity':      { 'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Humidity' }
+            'Temperature':   {'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature'},
+            'Humidity':      {'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Humidity'}
         },
         'ENERGY': {
-            'Name':          'Energie', # set, if different from key
-            'Total':         { 'Name': 'Gesamt',          'Unit': 'kWh',  'DomoType': 'Custom' },
-            'Yesterday':     { 'Name': 'Gestern',         'Unit': 'kWh',  'DomoType': 'Custom' },
-            'Today':         { 'Name': 'Heute',           'Unit': 'kWh',  'DomoType': 'Custom' },
-            'Power':         { 'Name': 'Leistung',        'Unit': 'kW',   'DomoType': 'Usage' },
-            'ApparentPower': { 'Name': 'Scheinleistung',  'Unit': 'kW',   'DomoType': 'Usage' },
-            'ReactivePower': { 'Name': 'Blindleistung',   'Unit': 'kW',   'DomoType': 'Usage' },
-            'Factor':        { 'Name': 'Leistungsfaktor', 'Unit': 'W/VA', 'DomoType': 'Custom' },
-            'Voltage':       { 'Name': 'Spannung',        'Unit': 'V',    'DomoType': 'Voltage' },
-            'Current':       { 'Name': 'Strom',           'Unit': 'A',    'DomoType': 'Current (Single)' }
+            'Name':          'Energie',  # set, if different from key
+            'Total':         {'Name': 'Gesamt',          'Unit': 'kWh',  'DomoType': 'Custom'},
+            'Yesterday':     {'Name': 'Gestern',         'Unit': 'kWh',  'DomoType': 'Custom'},
+            'Today':         {'Name': 'Heute',           'Unit': 'kWh',  'DomoType': 'Custom'},
+            'Power':         {'Name': 'Leistung',        'Unit': 'kW',   'DomoType': 'Usage'},
+            'ApparentPower': {'Name': 'Scheinleistung',  'Unit': 'kW',   'DomoType': 'Usage'},
+            'ReactivePower': {'Name': 'Blindleistung',   'Unit': 'kW',   'DomoType': 'Usage'},
+            'Factor':        {'Name': 'Leistungsfaktor', 'Unit': 'W/VA', 'DomoType': 'Custom'},
+            'Voltage':       {'Name': 'Spannung',        'Unit': 'V',    'DomoType': 'Voltage'},
+            'Current':       {'Name': 'Strom',           'Unit': 'A',    'DomoType': 'Current (Single)'}
         },
         'TSL2561': {
-            'Illuminance':   { 'Name': 'Helligkeit',      'Unit': 'lux',  'DomoType': 'Illumination' }
+            'Illuminance':   {'Name': 'Helligkeit',      'Unit': 'lux',  'DomoType': 'Illumination'}
         },
         'BMP280': {
-            'Temperature':   { 'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature' },
-            'Pressure':      { 'Name': 'Druck',           'Unit': 'hPa',  'DomoType': 'Barometer' }
+            'Temperature':   {'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature'},
+            'Pressure':      {'Name': 'Druck',           'Unit': 'hPa',  'DomoType': 'Barometer'}
         },
         'BME280': {
-            'Temperature':   { 'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature' },
-            'Pressure':      { 'Name': 'Druck',           'Unit': 'hPa',  'DomoType': 'Barometer' },
-            'Humidity':      { 'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Humidity' }
+            'Temperature':   {'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature'},
+            'Pressure':      {'Name': 'Druck',           'Unit': 'hPa',  'DomoType': 'Barometer'},
+            'Humidity':      {'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Humidity'}
         }
     }
 
@@ -332,7 +333,7 @@ def createSensorDevice(fullName, cmndName, deviceAttr, desc):
     deviceName = '{} {} {}'.format(fullName, desc['Sensor'], desc['Name'])
     description = {'Topic': cmndName, 'Command': deviceAttr}
     if desc['DomoType'] == 'Custom':
-        options = { 'Custom': '1;{}'.format(desc['Unit']) }
+        options = {'Custom': '1;{}'.format(desc['Unit'])}
     else:
         options = None
     Domoticz.Device(Name=deviceName, Unit=idx, TypeName=desc['DomoType'], Used=1, Options=options,
@@ -361,24 +362,28 @@ def d2t(attr, value):
 
 
 # Translate values of a tasmota attribute to matching domoticz device value
-def t2d(attr, value):
+def t2d(attr, value, type, subtype):
     if attr in ['POWER', 'POWER1', 'POWER2', 'POWER3']:
         if value == "ON":
             return 1, "On"
         elif value == "OFF":
             return 0, "Off"
+    elif type == 81:
+        # Domoticz humidity only accepted as integer
+        return int(round(float(value))), ""
+    elif type == 243 and subtype == 26:
+        # Domoticz barometer needs nValue=0 and sValue="pressure;5"
+        return 0, "{};5".format(value)
     return 0, str(value)
 
 
 # Update a tasmota attributes value in its associated domoticz device idx
 def updateValue(idx, attr, value):
-    nValue, sValue = t2d(attr, value)
+    nValue, sValue = t2d(attr, value, Devices[idx].Type, Devices[idx].SubType)
     if nValue != None and sValue != None:
-        if Devices[idx].Type == 81:
-            # Humidity only accepted as integer
-            nValue = int(round(float(sValue)))
         if Devices[idx].nValue != nValue or Devices[idx].sValue != sValue:
-            Debug("tasmota::updateValue: Idx:{}, Attr: {}, nValue: {}, sValue: {}".format(idx, attr, nValue, sValue))
+            Debug("tasmota::updateValue: Idx:{}, Attr: {}, nValue: {}, sValue: {}".format(
+                idx, attr, nValue, sValue))
             Devices[idx].Update(nValue=nValue, sValue=sValue)
 
 
