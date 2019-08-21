@@ -2,11 +2,12 @@
 
 ## Autodiscovery of Tasmota Devices for Domoticz
 
-Python plugin for autodetecting devices with Tasmota firmware in Domoticz.
+Python plugin for autodetecting devices with Tasmota firmware in [Domoticz Homeautomation](https://www.domoticz.com/).
 
 * Tasmotas native and manually configured domoticz support is not required, but can be used in parallel if you leave it compiled in for things I didn't implement yet (I use this).
 * Tasmotas native homeassistant support or setoption19 is not required, but probably can be used in parallel with [emontnemery's plugin](https://github.com/emontnemery/domoticz_mqtt_discovery "emontnemery's github repo") if you leave it compiled in (not tested)
 * Domoticzs native MQTT plugin is not required
+* No cloud required :)
 
 MQTT parts are heavily based on [Shelly_MQTT by enesbcs](https://github.com/enesbcs/Shelly_MQTT "enesbcs's github repo") who was very helpful in making my Shelly 2.5 driven shutters work and inspired me for this.
 Big thanks!
