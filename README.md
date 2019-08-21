@@ -2,7 +2,7 @@
 
 ## Autodiscovery of Tasmota Devices for Domoticz
 
-Python plugin for autodetecting devices with Tasmota firmware in [Domoticz Homeautomation](https://www.domoticz.com/).
+Python plugin for autodetecting ESP8266 devices with [Tasmota firmware](https://github.com/arendst/Sonoff-Tasmota) in [Domoticz Homeautomation](https://www.domoticz.com/).
 
 * Tasmotas native and manually configured domoticz support is not required, but can be used in parallel if you leave it compiled in for things I didn't implement yet (I use this).
 * Tasmotas native homeassistant support or setoption19 is not required, but probably can be used in parallel with [emontnemery's plugin](https://github.com/emontnemery/domoticz_mqtt_discovery "emontnemery's github repo") if you leave it compiled in (not tested)
@@ -18,7 +18,7 @@ Tasmota devices usually have builtin domoticz and home assistant support. If you
 
 Will be tested and working with Domoticz v4.x.
 
-If you do not have a working Python >=3.5 installation, please install it first! [Documented by domoticz](https://www.domoticz.com/wiki/Using_Python_plugins)
+If you do not have a working Python >=3.5 installation, please install it first! [Documented by Domoticz](https://www.domoticz.com/wiki/Using_Python_plugins)
 
 Setup and run MQTT broker, e.g. [Mosquitto](https://mosquitto.org/) and an MQTT capable [Tasmota device](https://github.com/arendst/Sonoff-Tasmota/wiki).
 
