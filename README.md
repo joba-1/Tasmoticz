@@ -1,4 +1,4 @@
-# Tasmoticz - Domoticz Plugin for Tasmota
+# Tasmoticz - Autodiscovery of Tasmota Devices for Domoticz
 
 Python plugin for autodetecting devices with Tasmota firmware in Domoticz.
 
@@ -27,7 +27,7 @@ cd domoticz/plugins
 git clone https://github.com/joba-1/Tasmoticz.git
 ```
 2. Restart domoticz
-3. Go to "Hardware" page and add new item with type "Tasmoticz" and activate it
+3. Go to "Hardware" page and add new item with type "Autodiscovery of Tasmota Devices" and activate it
 4. Make sure your devices have unique mqtt topics and can talk to the broker. The default topic 'sonoff' is ignored by this plugin so unconfigured devices are not picked up
 
 If you use an mqtt broker on the same host with standard port and standard tasmota firmware with standard configuration (with or without home assistant autodetection), that should be enough. 
