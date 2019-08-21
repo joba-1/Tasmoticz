@@ -1,12 +1,15 @@
 # Tasmoticz - Domoticz Plugin for Tasmota
 
-Python plugin for autodetecting devices with Tasmota firmware in Domoticz
+Python plugin for autodetecting devices with Tasmota firmware in Domoticz.
+
+* Tasmotas native and manually configured domoticz support is not required, but can be used in parallel if you leave it compiled in for things I didn't implement yet (I use this).
+* Tasmotas native homeassistant support or setoption19 is not required, but probably can be used in parallel with @emontnemery's plugin if you leave it compiled in (not tested)
+* Domoticzs native MQTT plugin is not required
 
 MQTT parts heavily based on Shelly_MQTT by enesbcs who was very helpful in making my Shelly 2.5 driven shutters work and inspired me for this.
 Big thanks!
 
-Tasmota devices usually have builtin domoticz support, but that is only required for manual configuration with the generic domoticz mqtt plugin and not needed for this plugin.
-If anything, all you need to do is to configure the mqtt topic format you use in your Tasmota devices if you changed it from the Tasmota default setting.
+Tasmota devices usually have builtin domoticz and home assistant support. If you want or need to save space, ram or cpu cycles you can remove that from the tasmota firmware.
 
 ## Prerequisites
 
@@ -18,14 +21,22 @@ Setup and run MQTT broker, e.g. Mosquitto (https://mosquitto.org/) and an MQTT c
 
 ## Installation
 
-1. Clone repository into your domoticz plugins folder
+1. Clone this repository into your domoticz plugins folder (or just put the *.py files in a Tasmoticz folder there) 
 ```
 cd domoticz/plugins
 git clone https://github.com/joba-1/Tasmoticz.git
 ```
 2. Restart domoticz
-3. Go to "Hardware" page and add new item with type "Tasmoticz"
-4. Set your MQTT server address and port to plugin settings
+3. Go to "Hardware" page and add new item with type "Tasmoticz" and activate it
+4. Make sure your devices have unique mqtt topics and can talk to the broker. The default topic 'sonoff' is ignored by this plugin so unconfigured devices are not picked up
+
+If you use an mqtt broker on the same host with standard port and standard tasmota firmware with standard configuration (with or without home assistant autodetection), that should be enough. 
+
+## Optional Configuration
+
+1. Set your MQTT broker name or ip address and port in the plugin settings if they differ from the default
+2. Set patterns of full topics of your tasmota devices tah should be picked up if they are not standard
+3. Set the friendly name of your tasmota device. It will be picked up and used as device name in domoticz if you have left the generated name untouched. The standard friendly name 'Sonoff' will be ignored. 
 
 Once plugin receives any MQTT status message from Tasmota devices it will try to create an appropriate domoticz device.
 
@@ -39,19 +50,19 @@ git pull
 ```
 3. Start domoticz
 
-## Supported devices
+## Supported devices and sensors
 
 - Relays and Switches of Tasmota devices
-- Sensors in Tasmota devices for sensors I use
+- Sensors in Tasmota devices for sensors I use (adding more should be easy)
 
 Planned to work with:
- - Sensors in Tasmota devices for sensors YOU send pull requests
- - RGBW strips attached to Tasmota devices
+ - Sensors in Tasmota devices for sensors YOU send pull requests or device logs including the SENSOR message
+ - RGBW strips attached to Tasmota devices (next step...)
  - Shutters operated by Tasmota devices once I have one or YOU send pull requests
 
 ## How To Contribute
 
-* Open an issue if you think you discovered a bug, have a feature request or a question
+* Open an issue if you think you discovered a bug, have a feature request or just a question
     * I'll close it if I think I can't help
     * You close it if the issue is solved for you
 * Open a pull request if you think you fixed a bug or implemented a new feature or need help with that
