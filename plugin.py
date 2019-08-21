@@ -2,7 +2,7 @@
 <plugin 
     key="Tasmoticz" 
     name="Autodiscovery of Tasmota Devices"
-    version="1.1.1"
+    version="1.2.1"
     author="Joachim Banzhaf" 
     externallink="https://github.com/joba-1/Tasmoticz">
    
