@@ -1,4 +1,6 @@
-# Tasmoticz - Autodiscovery of Tasmota Devices for Domoticz
+# Tasmoticz
+
+## Autodiscovery of Tasmota Devices for Domoticz
 
 Python plugin for autodetecting devices with Tasmota firmware in Domoticz.
 
@@ -52,12 +54,18 @@ git pull
 
 ## Supported devices and sensors
 
-- Relays and Switches of Tasmota devices
+- Relays of Tasmota devices (POWER*)
 - Sensors in Tasmota devices for sensors I use (adding more should be easy)
+    - DHT11 (nostalgia, not recommended because inaccurate)
+    - AM2301
+    - ENERGY
+    - TSL2561
+    - VL53L0X
+    - BMP280/BME280
 
 Planned to work with:
  - Sensors in Tasmota devices for sensors YOU send pull requests (or device logs including the SENSOR message)
- - RGBW strips attached to Tasmota devices (next step...)
+ - RGBW strips attached to Tasmota devices (my next step...)
  - Shutters operated by Tasmota devices once I have one or YOU send pull requests
 
 ## How To Contribute
