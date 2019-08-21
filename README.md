@@ -3,10 +3,10 @@
 Python plugin for autodetecting devices with Tasmota firmware in Domoticz.
 
 * Tasmotas native and manually configured domoticz support is not required, but can be used in parallel if you leave it compiled in for things I didn't implement yet (I use this).
-* Tasmotas native homeassistant support or setoption19 is not required, but probably can be used in parallel with @emontnemery's plugin if you leave it compiled in (not tested)
+* Tasmotas native homeassistant support or setoption19 is not required, but probably can be used in parallel with [emontnemery's plugin](https://github.com/emontnemery/domoticz_mqtt_discovery "emontnemery's github repo") if you leave it compiled in (not tested)
 * Domoticzs native MQTT plugin is not required
 
-MQTT parts heavily based on Shelly_MQTT by enesbcs who was very helpful in making my Shelly 2.5 driven shutters work and inspired me for this.
+MQTT parts are heavily based on [Shelly_MQTT by enesbcs](https://github.com/enesbcs/Shelly_MQTT "enesbcs's github repo") who was very helpful in making my Shelly 2.5 driven shutters work and inspired me for this.
 Big thanks!
 
 Tasmota devices usually have builtin domoticz and home assistant support. If you want or need to save space, ram or cpu cycles you can remove that from the tasmota firmware.
@@ -15,9 +15,9 @@ Tasmota devices usually have builtin domoticz and home assistant support. If you
 
 Will be tested and working with Domoticz v4.x.
 
-If you do not have a working Python >=3.5 installation, please install it first! (https://www.domoticz.com/wiki/Using_Python_plugins)
+If you do not have a working Python >=3.5 installation, please install it first! [Documented by domoticz](https://www.domoticz.com/wiki/Using_Python_plugins)
 
-Setup and run MQTT broker, e.g. Mosquitto (https://mosquitto.org/) and an MQTT capable Tasmota device. (https://github.com/arendst/Sonoff-Tasmota/wiki)
+Setup and run MQTT broker, e.g. [Mosquitto](https://mosquitto.org/) and an MQTT capable [Tasmota device](https://github.com/arendst/Sonoff-Tasmota/wiki).
 
 ## Installation
 
@@ -56,7 +56,7 @@ git pull
 - Sensors in Tasmota devices for sensors I use (adding more should be easy)
 
 Planned to work with:
- - Sensors in Tasmota devices for sensors YOU send pull requests or device logs including the SENSOR message
+ - Sensors in Tasmota devices for sensors YOU send pull requests (or device logs including the SENSOR message)
  - RGBW strips attached to Tasmota devices (next step...)
  - Shutters operated by Tasmota devices once I have one or YOU send pull requests
 
