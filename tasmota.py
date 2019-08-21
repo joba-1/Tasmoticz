@@ -244,6 +244,9 @@ def getSensorDevices(message):
         'TSL2561': {
             'Illuminance':   {'Name': 'Helligkeit',      'Unit': 'lux',  'DomoType': 'Illumination'}
         },
+        'VL53L0X': {
+            'Distance':      {'Name': 'Abstand',         'Unit': 'mm ',  'DomoType': 'Distance'}
+        },
         'BMP280': {
             'Temperature':   {'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature'},
             'Pressure':      {'Name': 'Luftdruck',       'Unit': 'hPa',  'DomoType': 'Barometer'}
@@ -390,9 +393,13 @@ def t2d(attr, value, type, subtype):
     elif type == 81:
         # Domoticz humidity only accepted as integer
         return int(round(float(value))), ""
-    elif type == 243 and subtype == 26:
-        # Domoticz barometer needs nValue=0 and sValue="pressure;5"
-        return 0, "{};5".format(value)
+    elif type == 243:
+        if subtype == 26:
+            # Domoticz barometer needs nValue=0 and sValue="pressure;5"
+            return 0, "{};5".format(value)
+        if subtype == 27:
+            # Domoticz distance needs cm but gets mm
+            return 0, str(float(value)/10)
     return 0, str(value)
 
 
