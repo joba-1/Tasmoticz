@@ -40,7 +40,7 @@ class Handler:
 
         # So far only STATUS, STATE, SENSOR and RESULT are used. Others just for research...
         self.topics = ['INFO1', 'STATE', 'SENSOR', 'RESULT', 'STATUS',
-                       'STATUS2', 'STATUS5', 'STATUS8', 'STATUS11', 'ENERGY']
+                       'STATUS5', 'STATUS8', 'STATUS11', 'ENERGY']
 
         self.prefix = [None, prefix1, prefix2, prefix3]
         self.subscriptions = subscriptions
@@ -150,8 +150,6 @@ class Handler:
         if tail == 'INFO1':
             updateInfo1Devices(fullName, cmndName, message)
             self.requestStatus(cmndName)
-        elif tail == 'STATUS2':
-            updateVersionDevices(fullName, cmndName, message)
         elif tail == 'STATUS5':
             updateNetDevices(fullName, cmndName, message)
         elif tail == 'ENERGY':
