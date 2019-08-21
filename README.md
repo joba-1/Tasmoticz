@@ -5,7 +5,7 @@
 Python plugin for autodetecting ESP8266 devices with [Tasmota firmware](https://github.com/arendst/Sonoff-Tasmota) in [Domoticz Homeautomation](https://www.domoticz.com/).
 
 * Tasmotas native and manually configured domoticz support is not required, but can be used in parallel if you leave it compiled in for things I didn't implement yet (I use this).
-* Tasmotas native homeassistant support or setoption19 is not required, but probably can be used in parallel with [emontnemery's plugin](https://github.com/emontnemery/domoticz_mqtt_discovery "emontnemery's github repo") if you leave it compiled in (not tested)
+* Tasmotas native homeassistant support or [Setoption19](https://github.com/arendst/Sonoff-Tasmota/wiki/Commands#setoption19) is not required, but probably can be used in parallel with [emontnemery's plugin](https://github.com/emontnemery/domoticz_mqtt_discovery "emontnemery's github repo") if you leave it compiled in (not tested)
 * Domoticzs native MQTT plugin is not required
 * No cloud required :)
 
