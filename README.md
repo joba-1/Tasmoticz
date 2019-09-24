@@ -63,6 +63,7 @@ git pull
     - TSL2561
     - VL53L0X
     - BMP280/BME280
+    - SI7021 (by Eddie-BS)
 
 Planned to work with:
  - Sensors in Tasmota devices for sensors YOU send pull requests (or device logs including the SENSOR message)
