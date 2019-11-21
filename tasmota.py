@@ -1,3 +1,4 @@
+import collections
 errmsg = ""
 try:
     import Domoticz
@@ -214,63 +215,36 @@ def getStateDevices(message):
 # * Additional desc contains info needed to create a matching domoticz device
 #  * Name is used for display / translation
 #  * Unit is only relevant for DomoType Custom (AFAIK other types have fixed units in domoticz)
-# * If a sensor name needs translation for display, this is done with its Name entry
 def getSensorDevices(message):
     states = []
 
-    sensors = {
-        'DHT11': {
-            'Temperature':   {'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature'},
-            'Humidity':      {'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Humidity'}
-        },
-        'AM2301': {
-            'Temperature':   {'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature'},
-            'Humidity':      {'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Humidity'}
-        },
-        'ENERGY': {
-            'Name':          'Energie',  # set, if different from key
-            'Total':         {'Name': 'Gesamt',          'Unit': 'kWh',  'DomoType': 'Custom'},
-            'Yesterday':     {'Name': 'Gestern',         'Unit': 'kWh',  'DomoType': 'Custom'},
-            'Today':         {'Name': 'Heute',           'Unit': 'kWh',  'DomoType': 'Custom'},
-            'Power':         {'Name': 'Leistung',        'Unit': 'kW',   'DomoType': 'Usage'},
-            'ApparentPower': {'Name': 'Scheinleistung',  'Unit': 'kW',   'DomoType': 'Usage'},
-            'ReactivePower': {'Name': 'Blindleistung',   'Unit': 'kW',   'DomoType': 'Usage'},
-            'Factor':        {'Name': 'Leistungsfaktor', 'Unit': 'W/VA', 'DomoType': 'Custom'},
-            'Voltage':       {'Name': 'Spannung',        'Unit': 'V',    'DomoType': 'Voltage'},
-            'Current':       {'Name': 'Strom',           'Unit': 'A',    'DomoType': 'Current (Single)'}
-        },
-        'TSL2561': {
-            'Illuminance':   {'Name': 'Helligkeit',      'Unit': 'lux',  'DomoType': 'Illumination'}
-        },
-        'VL53L0X': {
-            'Distance':      {'Name': 'Abstand',         'Unit': 'mm ',  'DomoType': 'Distance'}
-        },
-        'BMP280': {
-            'Temperature':   {'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature'},
-            'Pressure':      {'Name': 'Luftdruck',       'Unit': 'hPa',  'DomoType': 'Barometer'}
-        },
-        'BME280': {
-            'Temperature':   {'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature'},
-            'Pressure':      {'Name': 'Luftdruck',       'Unit': 'hPa',  'DomoType': 'Barometer'},
-            'Humidity':      {'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Humidity'}
-        },
-        'SI7021': {
-            'Temperature':   {'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature'},
-            'Humidity':      {'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Humidity'}
-        }
+    typeDb = {
+        'Temperature':   {'Name': 'Temperatur',      'Unit': '°C',   'DomoType': 'Temperature'},
+        'Humidity':      {'Name': 'Feuchtigkeit',    'Unit': '%',    'DomoType': 'Humidity'},
+        'Pressure':      {'Name': 'Luftdruck',       'Unit': 'hPa',  'DomoType': 'Barometer'},
+        'Illuminance':   {'Name': 'Helligkeit',      'Unit': 'lux',  'DomoType': 'Illumination'},
+        'Distance':      {'Name': 'Abstand',         'Unit': 'mm ',  'DomoType': 'Distance'},
+        'Total':         {'Name': 'Gesamt',          'Unit': 'kWh',  'DomoType': 'Custom'},
+        'Yesterday':     {'Name': 'Gestern',         'Unit': 'kWh',  'DomoType': 'Custom'},
+        'Today':         {'Name': 'Heute',           'Unit': 'kWh',  'DomoType': 'Custom'},
+        'Power':         {'Name': 'Leistung',        'Unit': 'kW',   'DomoType': 'Usage'},
+        'ApparentPower': {'Name': 'Scheinleistung',  'Unit': 'kW',   'DomoType': 'Usage'},
+        'ReactivePower': {'Name': 'Blindleistung',   'Unit': 'kW',   'DomoType': 'Usage'},
+        'Factor':        {'Name': 'Leistungsfaktor', 'Unit': 'W/VA', 'DomoType': 'Custom'},
+        'Voltage':       {'Name': 'Spannung',        'Unit': 'V',    'DomoType': 'Voltage'},
+        'Current':       {'Name': 'Strom',           'Unit': 'A',    'DomoType': 'Current (Single)'}
     }
 
-    for sensor, values in sensors.items():
-        for type, desc in values.items():
-            try:
-                value = message[sensor][type]
-                try:
-                    desc['Sensor'] = values['Name']
-                except:
-                    desc['Sensor'] = sensor
-                states.append((sensor, type, value, desc))
-            except:
-                pass
+    if isinstance(message, collections.Mapping):
+        for sensor, sensorData in message.items():
+            if isinstance(sensorData, collections.Mapping):
+                for type, value in sensorData.items():
+                    if type in typeDb:
+                        desc = typeDb[type]
+                        desc['Sensor'] = sensor
+                        if sensor == 'ENERGY':
+                            desc['Sensor'] = 'Energie'
+                        states.append((sensor, type, value, desc))
 
     return states
 
@@ -527,7 +501,6 @@ def updateEnergyDevices(fullName, cmndName, message):
     pass
 
 # TODO
-# more sensors
 # other types of switches (interlock, inching, shutters...)
 # dimmers
 # color control
