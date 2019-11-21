@@ -16,7 +16,7 @@
         <param field="Address"  label="MQTT broker address" width="300px" required="true" default="localhost"/>
         <param field="Port"     label="Port" width="300px" required="true" default="1883"/>
         <param field="Username" label="Username" width="300px"/>
-        <param field="Client"   label="Client" width="300px" default=""/>
+        <param field="Mode5"    label="Client" width="300px" default=""/>
         <param field="Password" label="Password" width="300px" default="" password="true"/>
         
         <param field="Mode1" label="Prefix1 (cmnd)" width="300px" default="cmnd"/>
@@ -85,7 +85,7 @@ class Plugin:
                 Debug("Plugin::onStart: Parameters: {}".format(repr(Parameters)))
                 self.mqttserveraddress = Parameters["Address"].strip()
                 self.mqttserverport = Parameters["Port"].strip()
-                self.mqttClient = MqttClient(self.mqttserveraddress, self.mqttserverport, Parameters["Client"],
+                self.mqttClient = MqttClient(self.mqttserveraddress, self.mqttserverport, Parameters["Mode5"],
                                              self.onMQTTConnected, self.onMQTTDisconnected, self.onMQTTPublish, self.onMQTTSubscribed)
                 self.mqttClient.debug(False)
                 self.tasmotaHandler = Handler(Parameters["Mode4"].strip().split('|'), Parameters["Mode1"].strip(
