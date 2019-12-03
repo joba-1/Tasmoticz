@@ -2,7 +2,7 @@
 
 ## Autodiscovery of Tasmota Devices for Domoticz
 
-Python plugin for autodetecting ESP8266 devices with [Tasmota firmware](https://github.com/arendst/Sonoff-Tasmota) in [Domoticz Homeautomation](https://www.domoticz.com/).
+Python plugin for autodetecting ESP8266 devices with [Tasmota firmware](https://github.com/arendst/Tasmota) in [Domoticz Homeautomation](https://www.domoticz.com/).
 
 * Tasmotas native and manually configured domoticz support is not required, but can be used in parallel if you leave it compiled in for things I didn't implement yet (I use this).
 * Tasmotas native homeassistant support or [Setoption19](https://github.com/arendst/Sonoff-Tasmota/wiki/Commands#setoption19) is not required, but probably can be used in parallel with [emontnemery's plugin](https://github.com/emontnemery/domoticz_mqtt_discovery "emontnemery's github repo") if you leave it compiled in (not tested)
@@ -20,7 +20,7 @@ Will be tested and working with Domoticz v4.x.
 
 If you do not have a working Python >=3.5 installation, please install it first! [Documented by Domoticz](https://www.domoticz.com/wiki/Using_Python_plugins)
 
-Setup and run MQTT broker, e.g. [Mosquitto](https://mosquitto.org/) and an MQTT capable [Tasmota device](https://github.com/arendst/Sonoff-Tasmota/wiki).
+Setup and run MQTT broker, e.g. [Mosquitto](https://mosquitto.org/) and an MQTT capable [Tasmota device](https://github.com/arendst/Tasmota/wiki).
 
 ## Installation
 
@@ -38,10 +38,10 @@ If you use an mqtt broker on the same host with standard port and standard tasmo
 ## Optional Configuration
 
 1. Set your MQTT broker name or ip address and port in the plugin settings if they differ from the default
-2. Set patterns of full topics of your tasmota devices tah should be picked up if they are not standard
+2. Set patterns of full topics of your tasmota devices that should be picked up if they are not standard
 3. Set the friendly name of your tasmota device. It will be picked up and used as device name in domoticz if you have left the generated name untouched. The standard friendly name 'Sonoff' will be ignored. 
 
-Once plugin receives any MQTT status message from Tasmota devices it will try to create an appropriate domoticz device.
+Once the plugin receives any MQTT status message from Tasmota devices it will try to create an appropriate domoticz device.
 
 ## Plugin update
 
@@ -64,6 +64,7 @@ git pull
     - VL53L0X
     - BMP280/BME280
     - SI7021 (by Eddie-BS)
+    - all other sensors using the data types (temperature, humidity, ...) of above sensors (by Hello1024)
 
 Planned to work with:
  - Sensors in Tasmota devices for sensors YOU send pull requests (or device logs including the SENSOR message)
