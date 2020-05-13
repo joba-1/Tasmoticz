@@ -464,17 +464,15 @@ def updateStatusDevices(fullName, cmndName, message):
         for idx in findDevices(fullName):
             description = json.loads(Devices[idx].Description)
             command = description["Command"]
-            nonames = ['Sonoff', 'Tasmota', '', None]
+            nonames = ['Sonoff', 'Tasmota', '', None] + ['Tasmota{}'.format(r) for r in range(2, 9)]
             name = None
-            if command == "POWER2" and len(names) > 1 and names[1] not in nonames:
-                name = names[1]
-            elif command == "POWER3" and len(names) > 2 and names[2] not in nonames:
-                name = names[2]
-            elif command == "POWER4" and len(names) > 3 and names[3] not in nonames:
-                name = names[3]
-            elif names[0] not in nonames:
+            for i in range(1, 8):
+                if command == "POWER{}".format(i+1) and len(names) > i and names[i] not in nonames:
+                    name = names[i]
+                    break
+            if name == None and names[0] not in nonames:
                 name = names[0]
-            if command != 'POWER':
+            if name != None and command != 'POWER':
                 name += ' ' + description["Type"]
             if name != None and Devices[idx].Name != name and ('Name' not in description or Devices[idx].Name == description["Name"]):
                 Domoticz.Log("tasmota::updateStatusDevices: idx: {}, from: {}, to: {}".format(
