@@ -115,7 +115,7 @@ class Handler:
             for subtopic, pattern in zip(subtopics[:-1], patterns):
                 if((pattern not in ('%topic%', '%prefix%', '+', subtopic)) or
                     (pattern == '%prefix%' and subtopic != self.prefix[2] and subtopic != self.prefix[3]) or
-                        (pattern == '%topic%' and subtopic == 'sonoff')):
+                        (pattern == '%topic%' and (subtopic == 'sonoff' or subtopic == 'tasmota'))):
                     fulltopic = []
                     cmndtopic = []
                     break
@@ -192,8 +192,7 @@ def findDevices(fullName):
 # Collects a list of all supported attribute key/value pairs from tasmota tele STATE messages
 def getStateDevices(message):
     states = []
-    baseattrs = ['POWER', 'POWER1', 'POWER2', 'POWER3', 'Heap', 'LoadAvg']
-    for attr in baseattrs:
+    for attr in ['POWER', 'Heap', 'LoadAvg'] + ['POWER{}'.format(r) for r in range(1, 33)]:
         try:
             value = message[attr]
             states.append((attr, value))
@@ -291,14 +290,14 @@ def createStateDevice(fullName, cmndName, deviceAttr):
         if idx not in Devices:
             break
 
-    if deviceAttr in ['POWER', 'POWER1', 'POWER2', 'POWER3']:
+    if deviceAttr in ['POWER'] + ['POWER{}'.format(r) for r in range(1, 33)]:
         deviceHash = deviceId(fullName)
         deviceName = '{} {}'.format(fullName, deviceAttr)
         description = {'Topic': cmndName, 'Command': deviceAttr, 'Device': 'Schalter'}
         if deviceAttr == 'POWER':
             description["Type"] = ""
         else:
-            description["Type"] = deviceAttr[-1]
+            description["Type"] = deviceAttr[5:]
         Domoticz.Device(Name=deviceName, Unit=idx, TypeName="Switch", Used=1,
                         Description=json.dumps(description, indent=2, ensure_ascii=False), DeviceID=deviceHash).Create()
         if idx in Devices:
@@ -351,7 +350,7 @@ def createSensorDevice(fullName, cmndName, deviceAttr, desc):
 
 # Translate device value received form domoticz to tasmota attribute/value
 def d2t(attr, value):
-    if attr in ['POWER', 'POWER1', 'POWER2', 'POWER3']:
+    if attr in ['POWER'] + ['POWER{}'.format(r) for r in range(1, 33)]:
         if value == "On":
             return "on"
         elif value == "Off":
@@ -361,7 +360,7 @@ def d2t(attr, value):
 
 # Translate values of a tasmota attribute to matching domoticz device value
 def t2d(attr, value, type, subtype):
-    if attr in ['POWER', 'POWER1', 'POWER2', 'POWER3']:
+    if attr in ['POWER'] + ['POWER{}'.format(r) for r in range(1, 33)]:
         if value == "ON":
             return 1, "On"
         elif value == "OFF":
@@ -465,15 +464,15 @@ def updateStatusDevices(fullName, cmndName, message):
         for idx in findDevices(fullName):
             description = json.loads(Devices[idx].Description)
             command = description["Command"]
-            nonames = ['Sonoff', '', None]
+            nonames = ['Sonoff', 'Tasmota', '', None] + ['Tasmota{}'.format(r) for r in range(2, 9)]
             name = None
-            if command == "POWER2" and len(names) > 1 and names[1] not in nonames:
-                name = names[1]
-            elif command == "POWER3" and len(names) > 2 and names[2] not in nonames:
-                name = names[2]
-            elif names[0] not in nonames:
+            for i in range(1, 8):
+                if command == "POWER{}".format(i+1) and len(names) > i and names[i] not in nonames:
+                    name = names[i]
+                    break
+            if name == None and names[0] not in nonames:
                 name = names[0]
-            if command != 'POWER':
+            if name != None and command != 'POWER':
                 name += ' ' + description["Type"]
             if name != None and Devices[idx].Name != name and ('Name' not in description or Devices[idx].Name == description["Name"]):
                 Domoticz.Log("tasmota::updateStatusDevices: idx: {}, from: {}, to: {}".format(
