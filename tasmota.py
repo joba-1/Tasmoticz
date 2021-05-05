@@ -224,7 +224,7 @@ def getSensorDevices(message):
         'Illuminance':   {'Name': 'Helligkeit',      'Unit': 'lux',  'DomoType': 'Illumination'},
         'Distance':      {'Name': 'Abstand',         'Unit': 'mm ',  'DomoType': 'Distance'},
         'UvLevel':       {'Name': 'UV Level',        'Unit': 'raw',  'DomoType': 'Custom'},
-        'UvIndex':       {'Name': 'UV Index',        'Unit': '[0-12]', 'DomoType': 'Custom'},
+        'UvIndex':       {'Name': 'UV Index',        'Unit': 'UVI',  'DomoType': 'Custom'},
         'UvPower':       {'Name': 'UV Leistung',     'Unit': 'W/m²', 'DomoType': 'Custom'},
         'Total':         {'Name': 'Gesamt',          'Unit': 'kWh',  'DomoType': 'Custom'},
         'Yesterday':     {'Name': 'Gestern',         'Unit': 'kWh',  'DomoType': 'Custom'},
