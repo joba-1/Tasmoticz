@@ -214,6 +214,8 @@ def getStateDevices(message):
 # * Additional desc contains info needed to create a matching domoticz device
 #  * Name is used for display / translation
 #  * Unit is only relevant for DomoType Custom (AFAIK other types have fixed units in domoticz)
+#  * Valid DomoType strings can be found in maptypename(): https://github.com/domoticz/domoticz/blob/development/hardware/plugins/PythonObjects.cpp#L365
+ 
 def getSensorDevices(message):
     states = []
 
@@ -230,6 +232,7 @@ def getSensorDevices(message):
         'ApparentPower': {'Name': 'Scheinleistung',  'Unit': 'kW',   'DomoType': 'Usage'},
         'ReactivePower': {'Name': 'Blindleistung',   'Unit': 'kW',   'DomoType': 'Usage'},
         'Factor':        {'Name': 'Leistungsfaktor', 'Unit': 'W/VA', 'DomoType': 'Custom'},
+        'Frequency':     {'Name': 'Frequenz',        'Unit': 'Hz',   'DomoType': 'Custom'},
         'Voltage':       {'Name': 'Spannung',        'Unit': 'V',    'DomoType': 'Voltage'},
         'Current':       {'Name': 'Strom',           'Unit': 'A',    'DomoType': 'Current (Single)'}
     }
