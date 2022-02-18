@@ -370,7 +370,7 @@ def t2d(attr, value, type, subtype):
             return 0, "Off"
     elif type == 81:
         # Domoticz humidity only accepted as integer
-        return int(round(float(value))), ""
+        return int(round(float(value))), "0"
     elif type == 243:
         if subtype == 26:
             # Domoticz barometer needs nValue=0 and sValue="pressure;5"
