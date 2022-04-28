@@ -244,7 +244,7 @@ def getSensorDevices(message):
         for sensor, sensorData in message.items():
             if isinstance(sensorData, collections.Mapping):
                 for type, value in sensorData.items():
-                    if type in typeDb:
+                    if type in typeDb and value is not None:
                         desc = typeDb[type].copy()
                         desc['Sensor'] = sensor
                         if sensor == 'ENERGY':
