@@ -1,3 +1,4 @@
+import collections.abc
 import collections
 errmsg = ""
 try:
@@ -240,9 +241,9 @@ def getSensorDevices(message):
         'Current':       {'Name': 'Strom',           'Unit': 'A',    'DomoType': 'Current (Single)'}
     }
 
-    if isinstance(message, collections.Mapping):
+    if isinstance(message, collections.abc.Mapping):
         for sensor, sensorData in message.items():
-            if isinstance(sensorData, collections.Mapping):
+            if isinstance(sensorData, collections.abc.Mapping):
                 for type, value in sensorData.items():
                     if type in typeDb and value is not None:
                         desc = typeDb[type].copy()
