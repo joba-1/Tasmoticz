@@ -1,5 +1,8 @@
-import collections.abc
-import collections
+try:
+    import collections.abc as collections
+except ImportError:  # Python <= 3.2 including Python 2
+    import collections
+
 errmsg = ""
 try:
     import Domoticz
@@ -241,9 +244,9 @@ def getSensorDevices(message):
         'Current':       {'Name': 'Strom',           'Unit': 'A',    'DomoType': 'Current (Single)'}
     }
 
-    if isinstance(message, collections.abc.Mapping):
+    if isinstance(message, collections.Mapping):
         for sensor, sensorData in message.items():
-            if isinstance(sensorData, collections.abc.Mapping):
+            if isinstance(sensorData, collections.Mapping):
                 for type, value in sensorData.items():
                     if type in typeDb and value is not None:
                         desc = typeDb[type].copy()
