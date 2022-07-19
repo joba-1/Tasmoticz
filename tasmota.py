@@ -1,4 +1,8 @@
-import collections
+try:
+    import collections.abc as collections
+except ImportError:  # Python <= 3.2 including Python 2
+    import collections
+
 errmsg = ""
 try:
     import Domoticz
