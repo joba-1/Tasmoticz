@@ -445,8 +445,13 @@ def updateSensorDevices(fullName, cmndName, message):
 # Update domoticz device values related to tasmota INFO1 message: Version and Module
 def updateInfo1Devices(fullName, cmndName, message):
     try:
-        module = message["Module"]
-        version = message["Version"]
+        if "Info1" in message:
+            module = message["Info1"]["Module"]
+            version = message["Info1"]["Version"]
+        else:
+            module = message["Module"]
+            version = message["Version"]
+
         for idx in findDevices(fullName):
             description = json.loads(Devices[idx].Description)
             dirty = False
