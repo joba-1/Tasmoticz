@@ -242,7 +242,15 @@ def getSensorDevices(message):
         'Factor':        {'Name': 'Leistungsfaktor', 'Unit': 'W/VA', 'DomoType': 'Custom'},
         'Frequency':     {'Name': 'Frequenz',        'Unit': 'Hz',   'DomoType': 'Custom'},
         'Voltage':       {'Name': 'Spannung',        'Unit': 'V',    'DomoType': 'Voltage'},
-        'Current':       {'Name': 'Strom',           'Unit': 'A',    'DomoType': 'Current (Single)'}
+        'Current':       {'Name': 'Strom',           'Unit': 'A',    'DomoType': 'Current (Single)'},
+        'zählerstand_total':    {'Name':'Total Usage',  'Unit':'KWh',   'DomoType': 'Custom'},
+        'zählerstand_tarif_1':    {'Name':'Tarif1 Usage',  'Unit':'KWh',   'DomoType': 'Custom'},
+        'zählerstand_tarif_2':    {'Name':'Tarif2 Usage',  'Unit':'KWh',   'DomoType': 'Custom'},
+        'aktuelle_wirkleistung':         {'Name': 'Usage Total',  'Unit':' W',   'DomoType': 'Usage'},
+        'wirkleistung_l1':         {'Name': 'Usage l1',  'Unit':' W',   'DomoType': 'Usage'},
+        'wirkleistung_l2':         {'Name': 'Usage l2',  'Unit':' W',   'DomoType': 'Usage'},
+        'wirkleistung_l3':         {'Name': 'Usage l3',  'Unit':' W',   'DomoType': 'Usage'}
+
     }
 
     if isinstance(message, collections.Mapping):
