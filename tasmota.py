@@ -43,8 +43,9 @@ class Handler:
             Domoticz.Error(
                 "Handler::__init__: Domoticz Python env error {}".format(errmsg))
 
-        # So far only STATUS, STATE, SENSOR and RESULT are used. Others just for research...
+        # So far only STATUS, STATE, LWT, SENSOR and RESULT are used. Others just for research...
         self.topics = ['INFO1', 'STATE', 'SENSOR', 'RESULT', 'STATUS',
+                        'LWT',												# For online/offline status
                        'STATUS5', 'STATUS8', 'STATUS11', 'ENERGY']
 
         self.prefix = [None, prefix1, prefix2, prefix3]
@@ -145,6 +146,9 @@ class Handler:
 
         if tail == 'STATE':  # POWER* status
             if updateStateDevices(fullName, cmndName, message):
+                self.requestStatus(cmndName)
+        elif tail == 'LWT':										# Online/Offline
+            if updateLWTDevices(fullName, cmndName, message):
                 self.requestStatus(cmndName)
         elif tail == 'SENSOR':
             if updateSensorDevices(fullName, cmndName, message):
@@ -332,6 +336,53 @@ def createStateDevice(fullName, cmndName, deviceAttr):
     return None
 
 
+# Create a domoticz device from tasmota LWT tele messages
+def createLWTDevice(fullName, cmndName, deviceAttr):
+    '''
+    Create domoticz device for deviceName
+    DeviceID is hash of fullName
+    '''
+    Domoticz.Log("tasmota::createLWTDevice( "+fullName+" , "+cmndName+" , "+deviceAttr+" )")
+
+    for idx in range(1, 512):
+        if idx not in Devices:
+            break
+
+    if deviceAttr in ['LWT'] :
+    	## profile for device to create 
+        deviceHash  = deviceId(fullName)
+        deviceName  = '{} {}'.format(fullName, deviceAttr)
+        typeName    = "Alert"
+        description = {'Topic': cmndName, 'Command': deviceAttr, 'Device': typeName }
+        description["Type"] = "MQTT connection"
+        
+        Domoticz.Device( Name = deviceName, Unit= idx, TypeName = typeName, Used = 1,
+                        Description = json.dumps( description, indent = 2, ensure_ascii = False),
+                        DeviceID = deviceHash ) .Create()
+        
+        Domoticz.Log( "tasmota::createLWTDevice.create: Name='{}', Unit: {}, TypeName: '{}', Description: ... , DeviceID: {}" .format( deviceName, idx, typeName, deviceHash ) )
+                 
+        if idx in Devices:
+        
+            Devices[idx].Update( nValue = 0, sValue = '' ,                           # Start values Grey icon to reflect not yet polled
+                                 Name = deviceName, SuppressTriggers = True )        # Remove hardware/plugin name from domoticz device name
+
+            ## Logging
+            _nValue= Devices[idx].nValue
+            _sValue= Devices[idx].sValue
+            _Name= deviceName,
+            _SuppressTriggers= True
+            Domoticz.Log("tasmota::createLWTDevice.Update: ID: {}, Name: {}, On: {}, Hash: {}, nValue: {}, sValue: '{}'".format(
+                idx, deviceName, fullName, deviceHash, _nValue, _sValue ))
+
+            return idx
+            
+        Domoticz.Error("tasmota::createLWTDevice: Failed creating Device ID: {}, Name: {}, On: {}".format(
+            idx, deviceName, fullName))
+
+    return None
+
+
 # Create a domoticz device from infos extracted out of tasmota SENSOR tele messages
 def createSensorDevice(fullName, cmndName, deviceAttr, desc):
     '''
@@ -437,6 +488,37 @@ def updateResultDevice(fullName, message):
             updateValue(idx, attr, value)
 
 
+# Update domoticz device values related to tasmota LWT message, create device if it does not exist yet
+# Returns true if a new device was created
+def updateLWTDevices(fullName, cmndName, message):
+    Domoticz.Log("tasmota::updateLWTDevices( "+fullName+" , "+cmndName+" , "+message+" )")
+    ret = False
+    idxs = findDevices(fullName)
+    attr='LWT'
+    value=message
+    idx = deviceByAttr(idxs, attr)
+    if idx == None:
+        idx = createLWTDevice(fullName, cmndName, attr)
+        if idx != None:
+            ret = True
+    if idx != None:
+        Domoticz.Log("tasmota::updateLWTDevices.updateValue( idx={}, attr: '{}', value: '{}' )".format(
+        idx, attr, value ))
+        LWTvaluemaps={
+            '':			{ 'sValue': '',			'alertLevel' : 0 },		# grey color
+            'Online':	{ 'sValue': 'Online',	'alertLevel' : 1 },		# green color
+            'Offline':	{ 'sValue': 'Offline',	'alertLevel' : 4 },		# red color
+        }
+        
+        if value in LWTvaluemaps:
+            Devices[idx].Update(
+                nValue=LWTvaluemaps[value]['alertLevel'],
+                sValue=LWTvaluemaps[value]['sValue']
+                )
+
+    return ret
+
+
 # Update domoticz device values related to tasmota SENSOR message, create device if it does not exist yet
 # Returns true if a new device was created
 def updateSensorDevices(fullName, cmndName, message):
@@ -515,6 +597,14 @@ def updateStatusDevices(fullName, cmndName, message):
             if name == None and names[0] not in nonames:
                 # not a multi power switch or multi value sensor: use first friendly name
                 name = names[0]
+                
+            if command == 'LWT' :		# A better choice for LWT is DeviceName.
+                #						  LWT concerns the IOT station, not one of its switches
+                #						  This choice might also concern some other dz-devices related to the IOT rather than the switches (Temperature,Energy?) I have no IOT to check this situation.
+                name = message["Status"]["DeviceName"]
+                if name == '' :
+                    name = message["Status"]["Topic"]
+                
             if name is not None and command != 'POWER':
                 # sensors names combine friendly name + type
                 name += ' ' + description["Type"]
