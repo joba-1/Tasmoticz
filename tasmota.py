@@ -219,8 +219,9 @@ def getStateDevices(message):
 # * Additional desc contains info needed to create a matching domoticz device
 #  * Name is used for display / translation
 #  * Unit is only relevant for DomoType Custom (AFAIK other types have fixed units in domoticz)
-#  * Valid DomoType strings can be found in maptypename(): https://github.com/domoticz/domoticz/blob/development/hardware/plugins/PythonObjects.cpp#L365
- 
+#  * Valid DomoType strings can be found in maptypename(): https://github.com/domoticz/domoticz/blob/development/hardware/plugins/PythonObjects.cpp#L371
+#  * If there is no DomoType TypeName matching the sensor type, use a tuple of domoticz Type;Subtype;Switchtype
+
 def getSensorDevices(message):
     states = []
 
@@ -233,9 +234,9 @@ def getSensorDevices(message):
         'UvLevel':       {'Name': 'UV Level',        'Unit': 'raw',  'DomoType': 'Custom'},
         'UvIndex':       {'Name': 'UV Index',        'Unit': 'UVI',  'DomoType': 'Custom'},
         'UvPower':       {'Name': 'UV Leistung',     'Unit': 'W/m²', 'DomoType': 'Custom'},
-        'Total':         {'Name': 'Gesamt',          'Unit': 'kWh',  'DomoType': 'Custom'},
-        'Yesterday':     {'Name': 'Gestern',         'Unit': 'kWh',  'DomoType': 'Custom'},
-        'Today':         {'Name': 'Heute',           'Unit': 'kWh',  'DomoType': 'Custom'},
+        'Total':         {'Name': 'Gesamt',          'Unit': 'kWh',  'DomoType': '113;0;0'},
+        'Yesterday':     {'Name': 'Gestern',         'Unit': 'kWh',  'DomoType': '113;0;0'},
+        'Today':         {'Name': 'Heute',           'Unit': 'kWh',  'DomoType': '113;0;0'},
         'Power':         {'Name': 'Leistung',        'Unit': 'kW',   'DomoType': 'Usage'},
         'ApparentPower': {'Name': 'Scheinleistung',  'Unit': 'kW',   'DomoType': 'Usage'},
         'ReactivePower': {'Name': 'Blindleistung',   'Unit': 'kW',   'DomoType': 'Usage'},
@@ -243,14 +244,13 @@ def getSensorDevices(message):
         'Frequency':     {'Name': 'Frequenz',        'Unit': 'Hz',   'DomoType': 'Custom'},
         'Voltage':       {'Name': 'Spannung',        'Unit': 'V',    'DomoType': 'Voltage'},
         'Current':       {'Name': 'Strom',           'Unit': 'A',    'DomoType': 'Current (Single)'},
-        'zählerstand_total':    {'Name':'Total Usage',  'Unit':'KWh',   'DomoType': 'Custom'},
-        'zählerstand_tarif_1':    {'Name':'Tarif1 Usage',  'Unit':'KWh',   'DomoType': 'Custom'},
-        'zählerstand_tarif_2':    {'Name':'Tarif2 Usage',  'Unit':'KWh',   'DomoType': 'Custom'},
-        'aktuelle_wirkleistung':         {'Name': 'Usage Total',  'Unit':' W',   'DomoType': 'Usage'},
-        'wirkleistung_l1':         {'Name': 'Usage l1',  'Unit':' W',   'DomoType': 'Usage'},
-        'wirkleistung_l2':         {'Name': 'Usage l2',  'Unit':' W',   'DomoType': 'Usage'},
-        'wirkleistung_l3':         {'Name': 'Usage l3',  'Unit':' W',   'DomoType': 'Usage'}
-
+        'zählerstand_total':     {'Name':'Total Usage',  'Unit':'KWh', 'DomoType': '113;0;0'},
+        'zählerstand_tarif_1':   {'Name':'Tarif1 Usage', 'Unit':'KWh', 'DomoType': '113;0;0'},
+        'zählerstand_tarif_2':   {'Name':'Tarif2 Usage', 'Unit':'KWh', 'DomoType': '113;0;0'},
+        'aktuelle_wirkleistung': {'Name': 'Usage Total', 'Unit':' W',  'DomoType': 'Usage'},
+        'wirkleistung_l1':       {'Name': 'Usage l1',    'Unit':' W',  'DomoType': 'Usage'},
+        'wirkleistung_l2':       {'Name': 'Usage l2',    'Unit':' W',  'DomoType': 'Usage'},
+        'wirkleistung_l3':       {'Name': 'Usage l3',    'Unit':' W',  'DomoType': 'Usage'}
     }
 
     if isinstance(message, collections.Mapping):
@@ -346,28 +346,39 @@ def createSensorDevice(fullName, cmndName, deviceAttr, desc):
 
     deviceHash = deviceId(fullName)
     attrs = deviceAttr.split('-')
+
     if len(attrs) > 2:
         deviceName = '{} {} {} {}'.format(fullName, desc['Sensor'], attrs[-2], desc['Name'])
     else:
         deviceName = '{} {} {}'.format(fullName, desc['Sensor'], desc['Name'])
     description = {'Topic': cmndName, 'Command': deviceAttr,
                    'Device': desc['Sensor'], 'Type': desc['Name']}
-    if desc['DomoType'] == 'Custom':
+
+    if desc['DomoType'][0] == 'Custom':
         options = {'Custom': '1;{}'.format(desc['Unit'])}
     else:
         options = None
-    Domoticz.Device(Name=deviceName, Unit=idx, TypeName=desc['DomoType'], Used=1, Options=options,
-                    Description=json.dumps(description, indent=2, ensure_ascii=False), DeviceID=deviceHash).Create()
+
+    if not desc['DomoType'][:1].isdigit():
+        # Create device that has a TypeName (prefered by domoticz)
+        Domoticz.Device(Name=deviceName, Unit=idx, TypeName=desc['DomoType'], Used=1, Options=options,
+            Description=json.dumps(description, indent=2, ensure_ascii=False), DeviceID=deviceHash).Create()
+    else:
+        # Create device without TypeName using domoticz low level Type, Subtype and Switchtype
+        dtype, dsub, dswitch = desc['DomoType'].split(";")
+        Domoticz.Device(Name=deviceName, Unit=idx, Type=int(dtype), Subtype=int(dsub), Switchtype=int(dswitch), Used=1, Options=options,
+            Description=json.dumps(description, indent=2, ensure_ascii=False), DeviceID=deviceHash).Create()
+
     if idx in Devices:
         # Remove hardware/plugin name from domoticz device name
         Devices[idx].Update(
             nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=deviceName, SuppressTriggers=True)
-        Domoticz.Log("tasmota::createSensorDevice: ID: {}, Name: {}, On: {}, Hash: {}".format(
-            idx, deviceName, fullName, deviceHash))
+        Domoticz.Log("tasmota::createSensorDevice: ID: {}, Name: {}, On: {}, Hash: {}, Type: {}".format(
+            idx, deviceName, fullName, deviceHash, desc['DomoType']))
         return idx
 
-    Domoticz.Error("tasmota::createSensorDevice: Failed creating Device ID: {}, Name: {}, On: {}".format(
-        idx, deviceName, fullName))
+    Domoticz.Error("tasmota::createSensorDevice: Failed creating Device ID: {}, Name: {}, On: {}, Type: {}".format(
+        idx, deviceName, fullName, desc['DomoType']))
     return None
 
 
@@ -388,9 +399,11 @@ def t2d(attr, value, type, subtype):
             return 1, "On"
         elif value == "OFF":
             return 0, "Off"
+
     elif type == 81:
         # Domoticz humidity only accepted as integer
         return int(round(float(value))), "0"
+
     elif type == 243:
         if subtype == 26:
             # Domoticz barometer needs nValue=0 and sValue="pressure;5"
@@ -398,6 +411,11 @@ def t2d(attr, value, type, subtype):
         if subtype == 27:
             # Domoticz distance needs cm but gets mm
             return 0, str(float(value)/10)
+
+    elif type == 113 and subtype in [0, 1, 2, 4]:
+        # Energy, water and gas counters expected in Wh or l but come in as kWh or m³
+        value = value * 1000
+
     return 0, str(value)
 
 
