@@ -450,9 +450,12 @@ def updateResultDevice(fullName, message):
     idxs = findDevices(fullName)
     attr, value = next(iter(message.items()))
     for idx in idxs:
-        description = json.loads(Devices[idx].Description)
-        if description['Command'] == attr:
-            updateValue(idx, attr, value)
+        try:
+            description = json.loads(Devices[idx].Description)
+            if description['Command'] == attr:
+                updateValue(idx, attr, value)
+        except Exception as e:
+            Domoticz.Error("tasmota::updateResultDevice: Update value for idx {} failed: {}".format(idx, str(e)))
 
 
 # Update domoticz device values related to tasmota SENSOR message, create device if it does not exist yet
@@ -492,63 +495,72 @@ def updateInfo1Devices(fullName, cmndName, message):
             version = message["Version"]
 
         for idx in findDevices(fullName):
-            description = json.loads(Devices[idx].Description)
-            dirty = False
-            if "Module" not in description or module != description["Module"]:
-                Domoticz.Log("tasmota::updateInfo1Devices: idx: {}, name: {}, module: {}".format(
-                    idx, Devices[idx].Name, module))
-                description["Module"] = module
-                dirty = True
-            if "Version" not in description or version != description["Version"]:
-                Domoticz.Log("tasmota::updateInfo1Devices: idx: {}, name: {}, version: {}".format(
-                    idx, Devices[idx].Name, version))
-                description["Version"] = version
-                dirty = True
-            if dirty:
-                Devices[idx].Update(nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, 
-                    Description=json.dumps(description, indent=2, ensure_ascii=False), SuppressTriggers=True)
+            try:
+                description = json.loads(Devices[idx].Description)
+                dirty = False
+                if "Module" not in description or module != description["Module"]:
+                    Domoticz.Log("tasmota::updateInfo1Devices: idx: {}, name: {}, module: {}".format(
+                        idx, Devices[idx].Name, module))
+                    description["Module"] = module
+                    dirty = True
+                if "Version" not in description or version != description["Version"]:
+                    Domoticz.Log("tasmota::updateInfo1Devices: idx: {}, name: {}, version: {}".format(
+                        idx, Devices[idx].Name, version))
+                    description["Version"] = version
+                    dirty = True
+                if dirty:
+                    Devices[idx].Update(nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, 
+                        Description=json.dumps(description, indent=2, ensure_ascii=False), SuppressTriggers=True)
+            except Exception as e:
+                Domoticz.Error("tasmota::updateInfo1Devices: Set module and version for idx {} failed: {}".format(idx, str(e)))
+
     except Exception as e:
-        Domoticz.Error("tasmota::updateInfo1Devices: Set module and version failed: {}".format(str(e)))
+        Domoticz.Error("tasmota::updateInfo1Devices: Get module and version failed: {}".format(str(e)))
 
 
 # Update domoticz device names and description from friendly names of tasmota STATUS message (seen on boot)
 def updateStatusDevices(fullName, cmndName, message):
     try:
         names = message["Status"]["FriendlyName"]
+
         for idx in findDevices(fullName):
-            description = json.loads(Devices[idx].Description) 
-            command = description["Command"]
-            nonames = ['Sonoff', 'Tasmota', '', None] + ['Tasmota{}'.format(r) for r in range(2, 9)]
-            name = None
-            # check if device is one of several power switches (e.g. power[12] or one of sensors with multiple values (e.g. ENERGY-[12]-Current)
-            for i in range(8):
-                if len(names) > i and names[i] not in nonames:
-                    if command == "POWER{}".format(i+1):
-                        name = names[i]
-                        break
-                    cmd = command.split('-')
-                    if len(cmd) > 2 and cmd[-2] == str(i+1): 
-                        name = names[i]
-                        break
-            if name == None and names[0] not in nonames:
-                # not a multi power switch or multi value sensor: use first friendly name
-                name = names[0]
-            if name is not None and command != 'POWER':
-                # sensors names combine friendly name + type
-                name += ' ' + description["Type"]
-            # Check if name is valid and has changed
-            if name is not None and Devices[idx].Name != name and ('Name' not in description or Devices[idx].Name == description["Name"]):
-                Domoticz.Log("tasmota::updateStatusDevices: idx: {}, from: {}, to: {}".format(
-                    idx, Devices[idx].Name, name))
-                description["Name"] = name
-                Devices[idx].Update(
-                    nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=name, 
-                    Description=json.dumps(description, indent=2, ensure_ascii=False), SuppressTriggers=True)
-            else:
-                Debug("tasmota::updateStatusDevices: idx: {}, rename: {}, skipped: {}".format(
-                    idx, Devices[idx].Name, repr(names)))
+            try:
+                description = json.loads(Devices[idx].Description) 
+                command = description["Command"]
+                nonames = ['Sonoff', 'Tasmota', '', None] + ['Tasmota{}'.format(r) for r in range(2, 9)]
+                name = None
+                # check if device is one of several power switches (e.g. power[12] or one of sensors with multiple values (e.g. ENERGY-[12]-Current)
+                for i in range(8):
+                    if len(names) > i and names[i] not in nonames:
+                        if command == "POWER{}".format(i+1):
+                            name = names[i]
+                            break
+                        cmd = command.split('-')
+                        if len(cmd) > 2 and cmd[-2] == str(i+1): 
+                            name = names[i]
+                            break
+                if name == None and names[0] not in nonames:
+                    # not a multi power switch or multi value sensor: use first friendly name
+                    name = names[0]
+                if name is not None and command != 'POWER':
+                    # sensors names combine friendly name + type
+                    name += ' ' + description["Type"]
+                # Check if name is valid and has changed
+                if name is not None and Devices[idx].Name != name and ('Name' not in description or Devices[idx].Name == description["Name"]):
+                    Domoticz.Log("tasmota::updateStatusDevices: idx: {}, from: {}, to: {}".format(
+                        idx, Devices[idx].Name, name))
+                    description["Name"] = name
+                    Devices[idx].Update(
+                        nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=name, 
+                        Description=json.dumps(description, indent=2, ensure_ascii=False), SuppressTriggers=True)
+                else:
+                    Debug("tasmota::updateStatusDevices: idx: {}, rename: {}, skipped: {}".format(
+                        idx, Devices[idx].Name, repr(names)))
+            except Exception as e:
+                Domoticz.Error("tasmota::updateStatusDevices: Set friendly name for idx {} failed: {}".format(idx, str(e)))
+
     except Exception as e:
-        Domoticz.Error("tasmota::updateStatusDevices: Set friendly name failed: {}".format(str(e)))
+        Domoticz.Error("tasmota::updateStatusDevices: Get friendly name failed: {}".format(str(e)))
 
 
 # TODO
