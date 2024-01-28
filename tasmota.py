@@ -219,8 +219,9 @@ def getStateDevices(message):
 # * Additional desc contains info needed to create a matching domoticz device
 #  * Name is used for display / translation
 #  * Unit is only relevant for DomoType Custom (AFAIK other types have fixed units in domoticz)
-#  * Valid DomoType strings can be found in maptypename(): https://github.com/domoticz/domoticz/blob/development/hardware/plugins/PythonObjects.cpp#L365
- 
+#  * Valid DomoType strings can be found in maptypename(): https://github.com/domoticz/domoticz/blob/development/hardware/plugins/PythonObjects.cpp#L371
+#  * If there is no DomoType TypeName matching the sensor type, use a tuple of domoticz Type;Subtype;Switchtype
+
 def getSensorDevices(message):
     states = []
 
@@ -233,7 +234,7 @@ def getSensorDevices(message):
         'UvLevel':       {'Name': 'UV Level',        'Unit': 'raw',  'DomoType': 'Custom'},
         'UvIndex':       {'Name': 'UV Index',        'Unit': 'UVI',  'DomoType': 'Custom'},
         'UvPower':       {'Name': 'UV Leistung',     'Unit': 'W/m²', 'DomoType': 'Custom'},
-        'Total':         {'Name': 'Gesamt',          'Unit': 'kWh',  'DomoType': 'Custom'},
+        'Total':         {'Name': 'Gesamt',          'Unit': 'kWh',  'DomoType': '113;0;0'},
         'Yesterday':     {'Name': 'Gestern',         'Unit': 'kWh',  'DomoType': 'Custom'},
         'Today':         {'Name': 'Heute',           'Unit': 'kWh',  'DomoType': 'Custom'},
         'Power':         {'Name': 'Leistung',        'Unit': 'kW',   'DomoType': 'Usage'},
@@ -243,14 +244,13 @@ def getSensorDevices(message):
         'Frequency':     {'Name': 'Frequenz',        'Unit': 'Hz',   'DomoType': 'Custom'},
         'Voltage':       {'Name': 'Spannung',        'Unit': 'V',    'DomoType': 'Voltage'},
         'Current':       {'Name': 'Strom',           'Unit': 'A',    'DomoType': 'Current (Single)'},
-        'zählerstand_total':    {'Name':'Total Usage',  'Unit':'KWh',   'DomoType': 'Custom'},
-        'zählerstand_tarif_1':    {'Name':'Tarif1 Usage',  'Unit':'KWh',   'DomoType': 'Custom'},
-        'zählerstand_tarif_2':    {'Name':'Tarif2 Usage',  'Unit':'KWh',   'DomoType': 'Custom'},
-        'aktuelle_wirkleistung':         {'Name': 'Usage Total',  'Unit':' W',   'DomoType': 'Usage'},
-        'wirkleistung_l1':         {'Name': 'Usage l1',  'Unit':' W',   'DomoType': 'Usage'},
-        'wirkleistung_l2':         {'Name': 'Usage l2',  'Unit':' W',   'DomoType': 'Usage'},
-        'wirkleistung_l3':         {'Name': 'Usage l3',  'Unit':' W',   'DomoType': 'Usage'}
-
+        'zählerstand_total':     {'Name':'Total Usage',  'Unit':'KWh', 'DomoType': '113;0;0'},
+        'zählerstand_tarif_1':   {'Name':'Tarif1 Usage', 'Unit':'KWh', 'DomoType': '113;0;0'},
+        'zählerstand_tarif_2':   {'Name':'Tarif2 Usage', 'Unit':'KWh', 'DomoType': '113;0;0'},
+        'aktuelle_wirkleistung': {'Name': 'Usage Total', 'Unit':' W',  'DomoType': 'Usage'},
+        'wirkleistung_l1':       {'Name': 'Usage l1',    'Unit':' W',  'DomoType': 'Usage'},
+        'wirkleistung_l2':       {'Name': 'Usage l2',    'Unit':' W',  'DomoType': 'Usage'},
+        'wirkleistung_l3':       {'Name': 'Usage l3',    'Unit':' W',  'DomoType': 'Usage'}
     }
 
     if isinstance(message, collections.Mapping):
@@ -346,28 +346,39 @@ def createSensorDevice(fullName, cmndName, deviceAttr, desc):
 
     deviceHash = deviceId(fullName)
     attrs = deviceAttr.split('-')
+
     if len(attrs) > 2:
         deviceName = '{} {} {} {}'.format(fullName, desc['Sensor'], attrs[-2], desc['Name'])
     else:
         deviceName = '{} {} {}'.format(fullName, desc['Sensor'], desc['Name'])
     description = {'Topic': cmndName, 'Command': deviceAttr,
                    'Device': desc['Sensor'], 'Type': desc['Name']}
-    if desc['DomoType'] == 'Custom':
+
+    if desc['DomoType'][0] == 'Custom':
         options = {'Custom': '1;{}'.format(desc['Unit'])}
     else:
         options = None
-    Domoticz.Device(Name=deviceName, Unit=idx, TypeName=desc['DomoType'], Used=1, Options=options,
-                    Description=json.dumps(description, indent=2, ensure_ascii=False), DeviceID=deviceHash).Create()
+
+    if not desc['DomoType'][:1].isdigit():
+        # Create device that has a TypeName (prefered by domoticz)
+        Domoticz.Device(Name=deviceName, Unit=idx, TypeName=desc['DomoType'], Used=1, Options=options,
+            Description=json.dumps(description, indent=2, ensure_ascii=False), DeviceID=deviceHash).Create()
+    else:
+        # Create device without TypeName using domoticz low level Type, Subtype and Switchtype
+        dtype, dsub, dswitch = desc['DomoType'].split(";")
+        Domoticz.Device(Name=deviceName, Unit=idx, Type=int(dtype), Subtype=int(dsub), Switchtype=int(dswitch), Used=1, Options=options,
+            Description=json.dumps(description, indent=2, ensure_ascii=False), DeviceID=deviceHash).Create()
+
     if idx in Devices:
         # Remove hardware/plugin name from domoticz device name
         Devices[idx].Update(
             nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=deviceName, SuppressTriggers=True)
-        Domoticz.Log("tasmota::createSensorDevice: ID: {}, Name: {}, On: {}, Hash: {}".format(
-            idx, deviceName, fullName, deviceHash))
+        Domoticz.Log("tasmota::createSensorDevice: ID: {}, Name: {}, On: {}, Hash: {}, Type: {}".format(
+            idx, deviceName, fullName, deviceHash, desc['DomoType']))
         return idx
 
-    Domoticz.Error("tasmota::createSensorDevice: Failed creating Device ID: {}, Name: {}, On: {}".format(
-        idx, deviceName, fullName))
+    Domoticz.Error("tasmota::createSensorDevice: Failed creating Device ID: {}, Name: {}, On: {}, Type: {}".format(
+        idx, deviceName, fullName, desc['DomoType']))
     return None
 
 
@@ -388,9 +399,11 @@ def t2d(attr, value, type, subtype):
             return 1, "On"
         elif value == "OFF":
             return 0, "Off"
+
     elif type == 81:
         # Domoticz humidity only accepted as integer
         return int(round(float(value))), "0"
+
     elif type == 243:
         if subtype == 26:
             # Domoticz barometer needs nValue=0 and sValue="pressure;5"
@@ -398,6 +411,11 @@ def t2d(attr, value, type, subtype):
         if subtype == 27:
             # Domoticz distance needs cm but gets mm
             return 0, str(float(value)/10)
+
+    elif type == 113 and subtype in [0, 1, 2, 4]:
+        # Energy, water and gas counters expected in Wh or l but come in as kWh or m³
+        value = value * 1000
+
     return 0, str(value)
 
 
@@ -432,9 +450,12 @@ def updateResultDevice(fullName, message):
     idxs = findDevices(fullName)
     attr, value = next(iter(message.items()))
     for idx in idxs:
-        description = json.loads(Devices[idx].Description)
-        if description['Command'] == attr:
-            updateValue(idx, attr, value)
+        try:
+            description = json.loads(Devices[idx].Description)
+            if description['Command'] == attr:
+                updateValue(idx, attr, value)
+        except Exception as e:
+            Domoticz.Error("tasmota::updateResultDevice: Update value for idx {} failed: {}".format(idx, str(e)))
 
 
 # Update domoticz device values related to tasmota SENSOR message, create device if it does not exist yet
@@ -474,63 +495,72 @@ def updateInfo1Devices(fullName, cmndName, message):
             version = message["Version"]
 
         for idx in findDevices(fullName):
-            description = json.loads(Devices[idx].Description)
-            dirty = False
-            if "Module" not in description or module != description["Module"]:
-                Domoticz.Log("tasmota::updateInfo1Devices: idx: {}, name: {}, module: {}".format(
-                    idx, Devices[idx].Name, module))
-                description["Module"] = module
-                dirty = True
-            if "Version" not in description or version != description["Version"]:
-                Domoticz.Log("tasmota::updateInfo1Devices: idx: {}, name: {}, version: {}".format(
-                    idx, Devices[idx].Name, version))
-                description["Version"] = version
-                dirty = True
-            if dirty:
-                Devices[idx].Update(nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, 
-                    Description=json.dumps(description, indent=2, ensure_ascii=False), SuppressTriggers=True)
+            try:
+                description = json.loads(Devices[idx].Description)
+                dirty = False
+                if "Module" not in description or module != description["Module"]:
+                    Domoticz.Log("tasmota::updateInfo1Devices: idx: {}, name: {}, module: {}".format(
+                        idx, Devices[idx].Name, module))
+                    description["Module"] = module
+                    dirty = True
+                if "Version" not in description or version != description["Version"]:
+                    Domoticz.Log("tasmota::updateInfo1Devices: idx: {}, name: {}, version: {}".format(
+                        idx, Devices[idx].Name, version))
+                    description["Version"] = version
+                    dirty = True
+                if dirty:
+                    Devices[idx].Update(nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, 
+                        Description=json.dumps(description, indent=2, ensure_ascii=False), SuppressTriggers=True)
+            except Exception as e:
+                Domoticz.Error("tasmota::updateInfo1Devices: Set module and version for idx {} failed: {}".format(idx, str(e)))
+
     except Exception as e:
-        Domoticz.Error("tasmota::updateInfo1Devices: Set module and version failed: {}".format(str(e)))
+        Domoticz.Error("tasmota::updateInfo1Devices: Get module and version failed: {}".format(str(e)))
 
 
 # Update domoticz device names and description from friendly names of tasmota STATUS message (seen on boot)
 def updateStatusDevices(fullName, cmndName, message):
     try:
         names = message["Status"]["FriendlyName"]
+
         for idx in findDevices(fullName):
-            description = json.loads(Devices[idx].Description) 
-            command = description["Command"]
-            nonames = ['Sonoff', 'Tasmota', '', None] + ['Tasmota{}'.format(r) for r in range(2, 9)]
-            name = None
-            # check if device is one of several power switches (e.g. power[12] or one of sensors with multiple values (e.g. ENERGY-[12]-Current)
-            for i in range(8):
-                if len(names) > i and names[i] not in nonames:
-                    if command == "POWER{}".format(i+1):
-                        name = names[i]
-                        break
-                    cmd = command.split('-')
-                    if len(cmd) > 2 and cmd[-2] == str(i+1): 
-                        name = names[i]
-                        break
-            if name == None and names[0] not in nonames:
-                # not a multi power switch or multi value sensor: use first friendly name
-                name = names[0]
-            if name is not None and command != 'POWER':
-                # sensors names combine friendly name + type
-                name += ' ' + description["Type"]
-            # Check if name is valid and has changed
-            if name is not None and Devices[idx].Name != name and ('Name' not in description or Devices[idx].Name == description["Name"]):
-                Domoticz.Log("tasmota::updateStatusDevices: idx: {}, from: {}, to: {}".format(
-                    idx, Devices[idx].Name, name))
-                description["Name"] = name
-                Devices[idx].Update(
-                    nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=name, 
-                    Description=json.dumps(description, indent=2, ensure_ascii=False), SuppressTriggers=True)
-            else:
-                Debug("tasmota::updateStatusDevices: idx: {}, rename: {}, skipped: {}".format(
-                    idx, Devices[idx].Name, repr(names)))
+            try:
+                description = json.loads(Devices[idx].Description) 
+                command = description["Command"]
+                nonames = ['Sonoff', 'Tasmota', '', None] + ['Tasmota{}'.format(r) for r in range(2, 9)]
+                name = None
+                # check if device is one of several power switches (e.g. power[12] or one of sensors with multiple values (e.g. ENERGY-[12]-Current)
+                for i in range(8):
+                    if len(names) > i and names[i] not in nonames:
+                        if command == "POWER{}".format(i+1):
+                            name = names[i]
+                            break
+                        cmd = command.split('-')
+                        if len(cmd) > 2 and cmd[-2] == str(i+1): 
+                            name = names[i]
+                            break
+                if name == None and names[0] not in nonames:
+                    # not a multi power switch or multi value sensor: use first friendly name
+                    name = names[0]
+                if name is not None and command != 'POWER':
+                    # sensors names combine friendly name + type
+                    name += ' ' + description["Type"]
+                # Check if name is valid and has changed
+                if name is not None and Devices[idx].Name != name and ('Name' not in description or Devices[idx].Name == description["Name"]):
+                    Domoticz.Log("tasmota::updateStatusDevices: idx: {}, from: {}, to: {}".format(
+                        idx, Devices[idx].Name, name))
+                    description["Name"] = name
+                    Devices[idx].Update(
+                        nValue=Devices[idx].nValue, sValue=Devices[idx].sValue, Name=name, 
+                        Description=json.dumps(description, indent=2, ensure_ascii=False), SuppressTriggers=True)
+                else:
+                    Debug("tasmota::updateStatusDevices: idx: {}, rename: {}, skipped: {}".format(
+                        idx, Devices[idx].Name, repr(names)))
+            except Exception as e:
+                Domoticz.Error("tasmota::updateStatusDevices: Set friendly name for idx {} failed: {}".format(idx, str(e)))
+
     except Exception as e:
-        Domoticz.Error("tasmota::updateStatusDevices: Set friendly name failed: {}".format(str(e)))
+        Domoticz.Error("tasmota::updateStatusDevices: Get friendly name failed: {}".format(str(e)))
 
 
 # TODO
