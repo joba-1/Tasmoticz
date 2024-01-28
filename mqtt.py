@@ -162,8 +162,21 @@ class MqttClient:
         if (self._connection != Connection):
             return
 
-        topic = Data['Topic'] if 'Topic' in Data else ''
-        payload = Data['Payload'].decode('utf8') if 'Payload' in Data else ''
+        if 'Topic' in Data:
+            if isinstance(Data['Topic'], bytes): 
+                topic = Data['Topic'].decode('utf8')
+            else:
+                topic = Data['Topic']
+        else:
+            topic = ''
+
+        if 'Payload' in Data:
+            if isinstance(Data['Payload'], bytes): 
+                payload = Data['Payload'].decode('utf8')
+            else:
+                payload = Data['Payload']
+        else:
+            payload = ''
 
         if Data['Verb'] == "CONNACK":
             self.isConnected = True
